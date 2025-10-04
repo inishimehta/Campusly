@@ -40,43 +40,49 @@ fun CampuslyApp() {
             composable("home") {
                 HomeScreen(
                     onPlaces = { nav.navigate("places") },
+                    onEvents = { /* TODO: Navigate to Events */ },
+                    onStudyGroups = { /* TODO: Navigate to Study Groups */ },
+                    onAnnouncements = { /* TODO: Navigate to Announcements */ },
                     onAbout = { nav.navigate("about") }
                 )
-            }
-            composable("places") {
-                PlacesListScreen(
-                    onOpenDetails = { id -> nav.navigate("placeDetails/$id") },
-                    onAdd = { nav.navigate("placeEdit") }
-                )
-            }
-            composable(
-                route = "placeDetails/{id}",
-                arguments = listOf(navArgument("id") { type = NavType.LongType })
-            ) { backStack ->
-                val id = backStack.arguments?.getLong("id") ?: -1L
-                PlaceDetailsScreen(
-                    id = id,
-                    onEdit = { nav.navigate("placeEdit?id=$id") },
-                    onBack = { nav.popBackStack() }
-                )
-            }
-            composable(
-                route = "placeEdit?id={id}",
-                arguments = listOf(navArgument("id") {
-                    type = NavType.LongType
-                    defaultValue = -1L
-                })
-            ) { backStack ->
-                val id = backStack.arguments?.getLong("id") ?: -1L
-                PlaceEditScreen(
-                    id = id,
-                    onDone = { nav.popBackStack() },
-                    onCancel = { nav.popBackStack() }
-                )
-            }
-            composable("about") {
-                AboutScreen(onBack = { nav.popBackStack() })
             }
         }
     }
 }
+//            composable("places") {
+//                PlacesListScreen(
+//                    onOpenDetails = { id -> nav.navigate("placeDetails/$id") },
+//                    onAdd = { nav.navigate("placeEdit") }
+//                )
+//            }
+//            composable(
+//                route = "placeDetails/{id}",
+//                arguments = listOf(navArgument("id") { type = NavType.LongType })
+//            ) { backStack ->
+//                val id = backStack.arguments?.getLong("id") ?: -1L
+//                PlaceDetailsScreen(
+//                    id = id,
+//                    onEdit = { nav.navigate("placeEdit?id=$id") },
+//                    onBack = { nav.popBackStack() }
+//                )
+//            }
+//            composable(
+//                route = "placeEdit?id={id}",
+//                arguments = listOf(navArgument("id") {
+//                    type = NavType.LongType
+//                    defaultValue = -1L
+//                })
+//            ) { backStack ->
+//                val id = backStack.arguments?.getLong("id") ?: -1L
+//                PlaceEditScreen(
+//                    id = id,
+//                    onDone = { nav.popBackStack() },
+//                    onCancel = { nav.popBackStack() }
+//                )
+//            }
+//            composable("about") {
+//                AboutScreen(onBack = { nav.popBackStack() })
+//            }
+//        }
+//    }
+//}
