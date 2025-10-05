@@ -20,7 +20,6 @@ import androidx.compose.ui.unit.dp
 import ca.gbc.comp3074.campusly.data.CampuslyFakeData //using fakde data
 import com.google.android.libraries.places.api.Places
 
-
 data class PlaceUi(val id: Long, val name: String, val tags: String, val rating: Int)
 
 //private val Unit.size: Int
