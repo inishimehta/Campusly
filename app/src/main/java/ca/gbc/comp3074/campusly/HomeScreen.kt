@@ -1,5 +1,6 @@
 package ca.gbc.comp3074.campusly
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -41,7 +42,8 @@ fun HomeScreen(
         ) {
             Text(
                 "Campusly",
-                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
+                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                modifier = Modifier.clickable { onAbout() }
             )
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 Icon(imageVector = Icons.Default.Notifications, contentDescription = "Notifications")
