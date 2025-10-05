@@ -126,7 +126,7 @@ fun SplashScreen(onDone: () -> Unit) {
 
                 // Footer group label
                 Text(
-                    text = "Group G-27",
+                    text = "Group 27",
                     color = Color(0xCCFFFFFF),
                     fontSize = 14.sp
                 )
