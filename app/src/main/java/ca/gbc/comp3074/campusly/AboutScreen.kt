@@ -9,6 +9,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.graphics.Color
+
 
 @Composable
 fun AboutScreen(onBack: () -> Unit = {}) {
@@ -25,7 +27,7 @@ fun AboutScreen(onBack: () -> Unit = {}) {
             style = MaterialTheme.typography.headlineSmall.copy(
                 fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
             ),
-            color = MaterialTheme.colorScheme.primary,
+            color = Color(0xFF1947D2),
             modifier = Modifier.fillMaxWidth(),
         )
 
