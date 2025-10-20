@@ -19,6 +19,10 @@ import androidx.compose.material.icons.filled.HeadsetMic
 import androidx.compose.material.icons.filled.People
 import androidx.compose.material.icons.filled.Campaign
 import androidx.compose.material.icons.filled.Star
+import androidx.compose.ui.platform.LocalContext
+import ca.gbc.comp3074.campusly.CampuslyTopBar
+import android.content.Intent
+import android.net.Uri
 
 @Composable
 fun HomeScreen(
@@ -26,8 +30,16 @@ fun HomeScreen(
     onEvents: () -> Unit,
     onStudyGroups: () -> Unit,
     onAnnouncements: () -> Unit,
-    onAbout: () -> Unit
+    onAbout: () -> Unit,
+    onNavigateHome: () -> Unit
 ) {
+    val context = LocalContext.current
+
+    fun openUrl(url: String) {
+        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+        context.startActivity(intent)
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -35,21 +47,22 @@ fun HomeScreen(
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         // Top bar
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                "Campusly",
-                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
-                modifier = Modifier.clickable { onAbout() }
-            )
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Icon(imageVector = Icons.Default.Notifications, contentDescription = "Notifications")
-                Icon(imageVector = Icons.Default.Person, contentDescription = "Profile")
-            }
-        }
+//        Row(
+//            modifier = Modifier.fillMaxWidth(),
+//            horizontalArrangement = Arrangement.SpaceBetween,
+//            verticalAlignment = Alignment.CenterVertically
+//        ) {
+//            Text(
+//                "Campusly",
+//                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+//                modifier = Modifier.clickable { onAbout() }
+//            )
+//            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+//                Icon(imageVector = Icons.Default.Notifications, contentDescription = "Notifications")
+//                Icon(imageVector = Icons.Default.Person, contentDescription = "Profile")
+//            }
+//        }
+        CampuslyTopBar(onTitleClick = onNavigateHome)
 
         // Welcome Card
         Card(
@@ -129,9 +142,15 @@ fun HomeScreen(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceEvenly
         ) {
-            QuickLink("Maps", Icons.Default.Map)
-            QuickLink("Clubs", Icons.Default.Star)
-            QuickLink("Services", Icons.Default.HeadsetMic)
+            QuickLink("Maps", Icons.Default.Map) {
+                openUrl("https://coned.georgebrown.ca/contact-us/campus-maps-and-locations")
+            }
+            QuickLink("Clubs", Icons.Default.Star) {
+                openUrl("https://www.georgebrown.ca/current-students/campus-activities-clubs/student-clubs")
+            }
+            QuickLink("Services", Icons.Default.HeadsetMic) {
+                openUrl("https://www.georgebrown.ca/current-students/services")
+            }
         }
     }
 }
@@ -163,8 +182,13 @@ fun FeatureCard(
 }
 
 @Composable
-fun QuickLink(title: String, icon: androidx.compose.ui.graphics.vector.ImageVector) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+fun QuickLink(
+    title: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    onClick: () -> Unit
+) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier.clickable(onClick = onClick)) {
         Card(
             shape = RoundedCornerShape(50),
             colors = CardDefaults.cardColors(containerColor = Color(0xFFE3F2FD)),
@@ -183,6 +207,13 @@ fun QuickLink(title: String, icon: androidx.compose.ui.graphics.vector.ImageVect
 @Composable
 fun HomePreview() {
     MaterialTheme {
-        HomeScreen(onPlaces = {}, onEvents = {}, onStudyGroups = {}, onAnnouncements = {}, onAbout = {})
+        HomeScreen(
+            onPlaces = {},
+            onEvents = {},
+            onStudyGroups = {},
+            onAnnouncements = {},
+            onAbout = {},
+            onNavigateHome = {}
+        )
     }
 }

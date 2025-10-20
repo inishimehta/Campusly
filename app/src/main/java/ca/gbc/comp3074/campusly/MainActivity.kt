@@ -41,16 +41,25 @@ fun CampuslyApp() {
                 HomeScreen(
                     onPlaces = { nav.navigate("places") },
                     onEvents = { nav.navigate("eventList") },
-                    onStudyGroups = { /* TODO: Navigate to Study Groups */ },
+                    onStudyGroups = { nav.navigate("studyGroups") },
                     onAnnouncements = { /* TODO: Navigate to Announcements */ },
-                    onAbout = { nav.navigate("about") }
+                    onAbout = { nav.navigate("about") },
+                    onNavigateHome = {
+                        nav.navigate("home") {
+                            popUpTo("home") { inclusive = true }
+                        }
+                    }
                 )
             }
-
             composable("places") {
                 PlacesListScreen(
                     onOpenDetails = { id -> nav.navigate("placeDetails/$id") },
                     onAdd = { nav.navigate("placeEdit") }
+                )
+            }
+            composable("studyGroups") {
+                StudyGroupsScreen(
+                    onBack = { nav.popBackStack() }
                 )
             }
             composable(
@@ -96,7 +105,12 @@ fun CampuslyApp() {
                 )
             }
             composable("about") {
-                AboutScreen(onBack = { nav.popBackStack() })
+                AboutScreen(
+                    onBack = { nav.popBackStack() },
+                    onNavigateHome = { nav.navigate("home") {
+                        popUpTo("home") { inclusive = true }
+                    } }
+                )
             }
         }
     }

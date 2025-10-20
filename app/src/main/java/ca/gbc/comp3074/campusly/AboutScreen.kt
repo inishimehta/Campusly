@@ -9,29 +9,23 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.graphics.Color
-
+import ca.gbc.comp3074.campusly.CampuslyTopBar
 
 @Composable
-fun AboutScreen(onBack: () -> Unit = {}) {
+fun AboutScreen(
+    onBack: () -> Unit = {},
+    onNavigateHome: () -> Unit
+) {
     Column(
         modifier = Modifier
             .fillMaxSize()
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // App Title - Bold and Centered
-        Text(
-            "Campusly",
-            style = MaterialTheme.typography.headlineSmall.copy(
-                fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
-            ),
-            color = Color(0xFF1947D2),
-            modifier = Modifier.fillMaxWidth(),
-        )
+        CampuslyTopBar(onTitleClick = onNavigateHome)
 
-        // Short Description - Centered
+        // Short Description
         Text(
             "Your student companion, so you don't waste time wondering where to go. Camously helps students discover events, places, and resources. All in one app!",
             style = MaterialTheme.typography.bodyMedium,
@@ -78,5 +72,7 @@ fun AboutScreen(onBack: () -> Unit = {}) {
 @Preview(showBackground = true)
 @Composable
 private fun AboutPreview() {
-    MaterialTheme { AboutScreen() }
+    MaterialTheme { AboutScreen(
+        onNavigateHome = {}
+    ) }
 }
