@@ -18,20 +18,10 @@ data class StudyGroup(val name: String, val description: String)
 
 @Composable
 fun StudyGroupsScreen(
+    viewModel: StudyGroupViewModel,
     onBack: () -> Unit
 ) {
-    var groups by remember {
-        mutableStateOf(
-            listOf(
-                StudyGroup("Math 101 Group", "Weekly math problem-solving sessions."),
-                StudyGroup("Physics Buddies", "Study for tests together."),
-                StudyGroup("Comp3074 Project Group", "Collaborate on project work.")
-            )
-        )
-    }
-    var joinedGroups by remember { mutableStateOf(setOf<String>()) }
-    var newGroupName by remember { mutableStateOf("") }
-    var newGroupDescription by remember { mutableStateOf("") }
+    val groups by viewModel.allGroups.collectAsState()
     var searchQuery by remember { mutableStateOf("") }
 
     val filteredGroups = if (searchQuery.isBlank()) groups else {
@@ -76,29 +66,32 @@ fun StudyGroupsScreen(
                         }
                         Button(
                             onClick = {
-                                joinedGroups = if (joinedGroups.contains(group.name)) {
-                                    joinedGroups - group.name
-                                } else {
-                                    joinedGroups + group.name
-                                }
+                                viewModel.toggleJoinGroup(group.name)
                             }
                         ) {
-                            Text(if (joinedGroups.contains(group.name)) "Leave" else "Join")
+                            Text(if (viewModel.joinedGroups.contains(group.name)) "Leave" else "Join")
                         }
                     }
                 }
             }
         }
-        Spacer(modifier = Modifier.height(16.dp))
 
-        if (joinedGroups.isNotEmpty()) {
+        if (viewModel.joinedGroups.isNotEmpty()) {
             Text("Joined Groups:", style = MaterialTheme.typography.titleMedium)
             Spacer(modifier = Modifier.height(8.dp))
-            for (groupName in joinedGroups) {
+
+            // Convert to a new List explicitly typed as List<String>
+            val groupList: List<String> = viewModel.joinedGroups.toList()
+
+            for (groupName in groupList) {
                 Text("- $groupName", style = MaterialTheme.typography.bodyMedium)
             }
+
             Spacer(modifier = Modifier.height(16.dp))
         }
+
+        var newGroupName by remember { mutableStateOf("") }
+        var newGroupDescription by remember { mutableStateOf("") }
 
         Text("Add New Study Group", style = MaterialTheme.typography.titleMedium)
         OutlinedTextField(
@@ -117,7 +110,7 @@ fun StudyGroupsScreen(
         Button(
             onClick = {
                 if (newGroupName.isNotBlank() && newGroupDescription.isNotBlank()) {
-                    groups = groups + StudyGroup(newGroupName, newGroupDescription)
+                    viewModel.addStudyGroup(newGroupName, newGroupDescription)
                     newGroupName = ""
                     newGroupDescription = ""
                 }

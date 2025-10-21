@@ -6,12 +6,16 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import ca.gbc.comp3074.campusly.ui.*
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.ViewModelStoreOwner
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -58,7 +62,14 @@ fun CampuslyApp() {
                 )
             }
             composable("studyGroups") {
+                // Get the ViewModel scoped to the activity
+                val vm: StudyGroupViewModel = viewModel(
+                    factory = ViewModelProvider.AndroidViewModelFactory(
+                        LocalContext.current.applicationContext as android.app.Application
+                    )
+                )
                 StudyGroupsScreen(
+                    viewModel = vm,
                     onBack = { nav.popBackStack() }
                 )
             }
