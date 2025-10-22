@@ -62,7 +62,6 @@ fun CampuslyApp() {
                 )
             }
             composable("studyGroups") {
-                // Get the ViewModel scoped to the activity
                 val vm: StudyGroupViewModel = viewModel(
                     factory = ViewModelProvider.AndroidViewModelFactory(
                         LocalContext.current.applicationContext as android.app.Application
@@ -70,7 +69,10 @@ fun CampuslyApp() {
                 )
                 StudyGroupsScreen(
                     viewModel = vm,
-                    onBack = { nav.popBackStack() }
+                    onBack = { nav.popBackStack() },
+                    onGoHome = { nav.navigate("home") {
+                        popUpTo("home") { inclusive = true }
+                    } }
                 )
             }
             composable(
