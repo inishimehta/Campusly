@@ -60,25 +60,12 @@ fun CampuslyApp() {
                     onBack = { nav.popBackStack() }
                 )
             }
-
             composable("places") {
                 PlacesListScreen(
-                    onOpenDetails = { id -> nav.navigate("placeDetails/$id") },
+                    onOpenDetails = { id ->
+                        nav.navigate("placeDetails/$id")
+                    },
                     onAdd = { nav.navigate("placeEdit") }
-                )
-            }
-            composable("studyGroups") {
-                val vm: StudyGroupViewModel = viewModel(
-                    factory = ViewModelProvider.AndroidViewModelFactory(
-                        LocalContext.current.applicationContext as android.app.Application
-                    )
-                )
-                StudyGroupsScreen(
-                    viewModel = vm,
-                    onBack = { nav.popBackStack() },
-                    onGoHome = { nav.navigate("home") {
-                        popUpTo("home") { inclusive = true }
-                    } }
                 )
             }
             composable(
@@ -89,7 +76,10 @@ fun CampuslyApp() {
                 PlaceDetailsScreen(
                     id = id,
                     onEdit = { nav.navigate("placeEdit?id=$id") },
-                    onBack = { nav.popBackStack() }
+                    onBack = { nav.popBackStack() },
+                    onNavigateToPlace = { newId -> nav.navigate("placeDetails/$newId") {
+                        popUpTo("placeDetails/$id") { inclusive = true }
+                    } }
                 )
             }
             composable(
@@ -106,6 +96,21 @@ fun CampuslyApp() {
                     onCancel = { nav.popBackStack() }
                 )
             }
+            composable("studyGroups") {
+                val vm: StudyGroupViewModel = viewModel(
+                    factory = ViewModelProvider.AndroidViewModelFactory(
+                        LocalContext.current.applicationContext as android.app.Application
+                    )
+                )
+                StudyGroupsScreen(
+                    viewModel = vm,
+                    onBack = { nav.popBackStack() },
+                    onGoHome = { nav.navigate("home") {
+                        popUpTo("home") { inclusive = true }
+                    } }
+                )
+            }
+
             composable("eventList") {
                 EventListScreen(
                     onOpenDetails = { id -> nav.navigate("eventDetails/$id") }
