@@ -23,6 +23,7 @@ import androidx.compose.ui.platform.LocalContext
 import ca.gbc.comp3074.campusly.CampuslyTopBar
 import android.content.Intent
 import android.net.Uri
+import androidx.compose.foundation.background
 
 @Composable
 fun HomeScreen(
@@ -97,39 +98,55 @@ fun HomeScreen(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 FeatureCard(
-                    "Places",
-                    Icons.Default.Place,
-                    "Find campus locations and navigate easily",
+                    title = "Places",
+                    icon = Icons.Default.Place,
+                    desc = "Find campus locations and navigate easily",
                     onClick = onPlaces,
                     modifier = Modifier.weight(1f)
+                        .width(150.dp)
+                        .height(200.dp),
+                    iconBackgroundColor = Color(0xFF1E88E5) // Blue
                 )
+
                 FeatureCard(
-                    "Events",
-                    Icons.Default.DateRange,
-                    "Discover upcoming campus events and activities",
+                    title = "Events",
+                    icon = Icons.Default.DateRange,
+                    desc = "Discover upcoming campus events and activities",
                     onClick = onEvents,
                     modifier = Modifier.weight(1f)
+                        .width(150.dp)
+                        .height(200.dp),
+                    iconBackgroundColor = Color(0xFF43A047) // Green
                 )
             }
+
             Row(
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                 modifier = Modifier.fillMaxWidth()
             ) {
                 FeatureCard(
-                    "Study Groups",
-                    Icons.Default.People,
-                    "Join or create study groups with classmates",
+                    title = "Study Groups",
+                    icon = Icons.Default.People,
+                    desc = "Join or create study groups with classmates",
                     onClick = onStudyGroups,
                     modifier = Modifier.weight(1f)
+                        .width(150.dp)
+                        .height(200.dp),
+                    iconBackgroundColor = Color(0xFF8E24AA) // Purple
                 )
+
                 FeatureCard(
-                    "Announcements",
-                    Icons.Default.Campaign,
-                    "Stay updated with important campus news",
+                    title = "Announcements",
+                    icon = Icons.Default.Campaign,
+                    desc = "Stay updated with important campus news",
                     onClick = onAnnouncements,
                     modifier = Modifier.weight(1f)
+                        .width(150.dp)
+                        .height(200.dp),
+                    iconBackgroundColor = Color(0xFFFB8C00) // Orange
                 )
             }
+
         }
 
         // Quick Links
@@ -142,18 +159,29 @@ fun HomeScreen(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceEvenly
         ) {
-            QuickLink("Maps", Icons.Default.Map) {
-                openUrl("https://coned.georgebrown.ca/contact-us/campus-maps-and-locations")
-            }
-            QuickLink("Clubs", Icons.Default.Star) {
-                openUrl("https://www.georgebrown.ca/current-students/campus-activities-clubs/student-clubs")
-            }
-            QuickLink("Services", Icons.Default.HeadsetMic) {
-                openUrl("https://www.georgebrown.ca/current-students/services")
-            }
+            QuickLink(
+                "Maps",
+                Icons.Default.Map,
+                onClick = { openUrl("https://www.georgebrown.ca/about/campuses-locations") },
+                backgroundColor = Color(0xFFFFB74D)
+            )
+            QuickLink(
+                "Clubs",
+                Icons.Default.Star,
+                onClick = { openUrl("https://www.georgebrown.ca/current-students/campus-activities-clubs/student-clubs") },
+                backgroundColor = Color(0xFFBA68C8)
+            )
+            QuickLink(
+                "Services",
+                Icons.Default.HeadsetMic,
+                onClick = { openUrl("https://www.georgebrown.ca/current-students/services") },
+                backgroundColor = Color(0xFFE57373)
+            )
         }
+
     }
-}
+    }
+
 
 @Composable
 fun FeatureCard(
@@ -161,22 +189,37 @@ fun FeatureCard(
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     desc: String,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    iconBackgroundColor: Color = Color(0xFFE3F2FD)
+
 ) {
     Card(
         onClick = onClick,
-        modifier = modifier,
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFFF5F5F5))
+        modifier = modifier
+            .height(130.dp), // makes it rectangular
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
     ) {
         Column(
-            modifier = Modifier.padding(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+            modifier = Modifier
+                .padding(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
         ) {
-            Icon(icon, contentDescription = title, tint = Color.Black, modifier = Modifier.size(32.dp))
+            // Circle behind icon
+            Box(
+                modifier = Modifier
+                    .size(48.dp)
+                    .background(color = iconBackgroundColor, shape = RoundedCornerShape(50)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(icon, contentDescription = title, tint = Color.White, modifier = Modifier.size(24.dp))
+            }
+
             Spacer(modifier = Modifier.height(8.dp))
             Text(title, fontWeight = FontWeight.Bold)
-            Text(desc, style = MaterialTheme.typography.bodySmall)
+            Text(desc, style = MaterialTheme.typography.bodySmall, color = Color.Gray, lineHeight = 14.sp)
         }
     }
 }
@@ -185,17 +228,20 @@ fun FeatureCard(
 fun QuickLink(
     title: String,
     icon: androidx.compose.ui.graphics.vector.ImageVector,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    backgroundColor: Color = Color(0xFFE3F2FD)
 ) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = Modifier.clickable(onClick = onClick)) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier.clickable(onClick = onClick)
+    ) {
         Card(
             shape = RoundedCornerShape(50),
-            colors = CardDefaults.cardColors(containerColor = Color(0xFFE3F2FD)),
+            colors = CardDefaults.cardColors(containerColor = backgroundColor),
             modifier = Modifier.size(60.dp)
         ) {
             Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
-                Icon(icon, contentDescription = title, tint = Color.Black)
+                Icon(icon, contentDescription = title, tint = Color.White)
             }
         }
         Spacer(modifier = Modifier.height(4.dp))

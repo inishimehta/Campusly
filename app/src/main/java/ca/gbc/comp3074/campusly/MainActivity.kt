@@ -46,7 +46,7 @@ fun CampuslyApp() {
                     onPlaces = { nav.navigate("places") },
                     onEvents = { nav.navigate("eventList") },
                     onStudyGroups = { nav.navigate("studyGroups") },
-                    onAnnouncements = { /* TODO: Navigate to Announcements */ },
+                    onAnnouncements = { nav.navigate("announcements") }, // <- update here
                     onAbout = { nav.navigate("about") },
                     onNavigateHome = {
                         nav.navigate("home") {
@@ -55,6 +55,12 @@ fun CampuslyApp() {
                     }
                 )
             }
+            composable("announcements") {
+                AnnouncementsScreen(
+                    onBack = { nav.popBackStack() }
+                )
+            }
+
             composable("places") {
                 PlacesListScreen(
                     onOpenDetails = { id -> nav.navigate("placeDetails/$id") },
@@ -125,6 +131,8 @@ fun CampuslyApp() {
                     } }
                 )
             }
+
+
         }
     }
 }
