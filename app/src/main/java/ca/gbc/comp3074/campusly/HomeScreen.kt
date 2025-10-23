@@ -63,7 +63,7 @@ fun HomeScreen(
 //                Icon(imageVector = Icons.Default.Person, contentDescription = "Profile")
 //            }
 //        }
-        CampuslyTopBar(onTitleClick = onNavigateHome)
+        CampuslyTopBar(onTitleClick = onAbout)
 
         // Welcome Card
         Card(
