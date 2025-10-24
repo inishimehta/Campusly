@@ -111,23 +111,60 @@ fun CampuslyApp() {
                 )
             }
 
+            // --- EVENT-RELATED COMPOSABLES ---
             composable("eventList") {
+                val eventViewModel: EventViewModel = viewModel(
+                    factory = EventViewModelFactory(
+                        LocalContext.current.applicationContext as android.app.Application
+                    )
+                )
+
                 EventListScreen(
-                    onOpenDetails = { id -> nav.navigate("eventDetails/$id") }
+                    viewModel = eventViewModel,
+                    onEventClick = { eventId ->
+                        nav.navigate("eventDetails/$eventId")
+                    },
+                    onAddEvent = {
+                        nav.navigate("eventUpdate") // optional
+                    }
                 )
             }
 
-            composable(
-                route = "eventDetails/{id}",
-                arguments = listOf(navArgument("id") { type = NavType.LongType })
-            ) { backStack ->
-                val id = backStack.arguments?.getLong("id") ?: -1L
+            composable("eventDetails/{eventId}") { backStackEntry ->
+                val eventId = backStackEntry.arguments?.getString("eventId")?.toLong() ?: 0L
+                val eventViewModel: EventViewModel = viewModel(
+                    factory = EventViewModelFactory(
+                        LocalContext.current.applicationContext as android.app.Application
+                    )
+                )
+
                 EventDetailsScreen(
-                    eventId = id,
-                    onRSVP = { nav.popBackStack() },
+                    eventId = eventId,
+                    viewModel = eventViewModel,
+                    onEditClick = { id ->
+                        nav.navigate("eventUpdate/$id")
+                    },
                     onBack = { nav.popBackStack() }
                 )
             }
+
+            composable("eventUpdate/{eventId}") { backStackEntry ->
+                val eventId = backStackEntry.arguments?.getString("eventId")?.toLong() ?: 0L
+                //val eventId = backStackEntry.arguments?.getString("eventId")?.toLongOrNull() ?: -1L
+                val eventViewModel: EventViewModel = viewModel(
+                    factory = EventViewModelFactory(
+                        LocalContext.current.applicationContext as android.app.Application
+                    )
+                )
+
+                UpdateEventScreen(
+                    eventId = eventId,
+                    viewModel = eventViewModel,
+                    onSave = { nav.popBackStack() },
+                    onCancel = { nav.popBackStack() }
+                )
+            }
+
             composable("about") {
                 AboutScreen(
                     onBack = { nav.popBackStack() },

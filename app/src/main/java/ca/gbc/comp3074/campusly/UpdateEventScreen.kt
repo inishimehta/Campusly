@@ -1,122 +1,138 @@
 package ca.gbc.comp3074.campusly
 
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.CalendarMonth
-import androidx.compose.material.icons.filled.Description
-import androidx.compose.material.icons.filled.Event
-import androidx.compose.material.icons.filled.LocationOn
-import androidx.compose.material.icons.filled.Person
-import androidx.compose.material3.Button
-import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.tooling.preview.Preview
+import kotlinx.coroutines.launch
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun UpdateEventScreen(id: Long, onDone: () -> Unit, onCancel: () -> Unit) {
-    var name by rememberSaveable { mutableStateOf("") }
-    var dateTime by rememberSaveable { mutableStateOf("") }
-    var location by rememberSaveable { mutableStateOf("") }
-    var organizer by rememberSaveable { mutableStateOf("") }
-    var description by rememberSaveable { mutableStateOf("") }
+fun UpdateEventScreen(
+    eventId: Long,
+    viewModel: EventViewModel,
+    onSave: () -> Unit,
+    onCancel: () -> Unit
+) {
+    val scope = rememberCoroutineScope()
 
-    Column(
-        Modifier
-            .fillMaxSize()
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-        Text(
-            text = if (id == -1L) "Add Event" else "Edit Event #$id",
-            style = MaterialTheme.typography.headlineSmall,
-            fontWeight = FontWeight.Bold
-        )
+    // Get the event data from the DB if editing
+    val event = viewModel.getEventById(eventId).collectAsState(initial = null).value
 
-        Text("Event Name", fontWeight = FontWeight.Bold)
-        OutlinedTextField(
-            value = name,
-            onValueChange = { name = it },
-            label = { Text("Enter event name") },
-            placeholder = { Text("e.g., Campus Orientation") },
-            leadingIcon = { Icon(Icons.Default.Event, contentDescription = "Event Name") },
-            modifier = Modifier.fillMaxWidth()
-        )
+    // Local state for editable fields
+    var name by remember { mutableStateOf(event?.name ?: "") }
+    var dateTime by remember { mutableStateOf(event?.dateTime ?: "") }
+    var location by remember { mutableStateOf(event?.location ?: "") }
+    var description by remember { mutableStateOf(event?.description ?: "") }
 
-        Text("Date & Time", fontWeight = FontWeight.Bold)
-        OutlinedTextField(
-            value = dateTime,
-            onValueChange = { dateTime = it },
-            label = { Text("Enter date and time") },
-            placeholder = { Text("YYYY-MM-DD HH:MM") },
-            leadingIcon = { Icon(Icons.Default.CalendarMonth, contentDescription = "Date and Time") },
-            modifier = Modifier.fillMaxWidth()
-        )
+    Scaffold(
+        topBar = {
+            CenterAlignedTopAppBar(
+                title = { Text(if (eventId == -1L) "Add Event" else "Edit Event") },
+                navigationIcon = {
+                    IconButton(onClick = onCancel) {
+                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                    }
+                },
+                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    titleContentColor = MaterialTheme.colorScheme.onPrimary,
+                    navigationIconContentColor = MaterialTheme.colorScheme.onPrimary
+                )
+            )
+        }
+    ) { padding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            OutlinedTextField(
+                value = name,
+                onValueChange = { name = it },
+                label = { Text("Event Name") },
+                leadingIcon = { Icon(Icons.Default.Event, contentDescription = null) },
+                modifier = Modifier.fillMaxWidth()
+            )
 
-        Text("Location", fontWeight = FontWeight.Bold)
-        OutlinedTextField(
-            value = location,
-            onValueChange = { location = it },
-            label = { Text("Enter event location") },
-            placeholder = { Text("e.g., Main Hall") },
-            leadingIcon = { Icon(Icons.Default.LocationOn, contentDescription = "Location") },
-            modifier = Modifier.fillMaxWidth()
-        )
+            OutlinedTextField(
+                value = dateTime,
+                onValueChange = { dateTime = it },
+                label = { Text("Date & Time") },
+                placeholder = { Text("YYYY-MM-DD HH:MM") },
+                leadingIcon = { Icon(Icons.Default.CalendarMonth, contentDescription = null) },
+                modifier = Modifier.fillMaxWidth()
+            )
 
-        Text("Organizer", fontWeight = FontWeight.Bold)
-        OutlinedTextField(
-            value = organizer,
-            onValueChange = { organizer = it },
-            label = { Text("Enter organizer name or club") },
-            placeholder = { Text("e.g., Student Union") },
-            leadingIcon = { Icon(Icons.Default.Person, contentDescription = "Organizer") },
-            modifier = Modifier.fillMaxWidth()
-        )
+            OutlinedTextField(
+                value = location,
+                onValueChange = { location = it },
+                label = { Text("Location") },
+                leadingIcon = { Icon(Icons.Default.LocationOn, contentDescription = null) },
+                modifier = Modifier.fillMaxWidth()
+            )
 
-        Text("Description", fontWeight = FontWeight.Bold)
-        OutlinedTextField(
-            value = description,
-            onValueChange = { description = it },
-            label = { Text("Describe the event details and agenda...") },
-            leadingIcon = { Icon(Icons.Default.Description, contentDescription = "Description") },
-            placeholder = { Text("Description") },
-            modifier = Modifier.fillMaxWidth()
-        )
+            OutlinedTextField(
+                value = description,
+                onValueChange = { description = it },
+                label = { Text("Description") },
+                leadingIcon = { Icon(Icons.Default.Description, contentDescription = null) },
+                modifier = Modifier.fillMaxWidth(),
+                maxLines = 3
+            )
 
-        RowButtons(onDone = onDone, onCancel = onCancel)
-    }
-}
+            Spacer(modifier = Modifier.height(16.dp))
 
-@Composable
-private fun RowButtons(onDone: () -> Unit, onCancel: () -> Unit) {
-    androidx.compose.foundation.layout.Row(
-        modifier = Modifier.fillMaxSize(),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        verticalAlignment = Alignment.Bottom
-    ) {
-        Button(onClick = onCancel) { Text("Cancel") }
-        Button(onClick = onDone) { Text("Save") }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                OutlinedButton(onClick = onCancel) {
+                    Text("Cancel")
+                }
+
+                Button(onClick = {
+                    if (name.isNotBlank() && location.isNotBlank()) {
+                        scope.launch {
+                            if (eventId == -1L) {
+                                // Add new event
+                                viewModel.addEvent(name, location, dateTime, description)
+                            } else {
+                                // Update existing event
+                                val updatedEvent = event?.copy(
+                                    name = name,
+                                    location = location,
+                                    dateTime = dateTime,
+                                    description = description
+                                )
+                                if (updatedEvent != null) {
+                                    viewModel.updateEvent(updatedEvent)
+                                }
+                            }
+                            onSave()
+                        }
+                    }
+                }) {
+                    Icon(Icons.Default.Check, contentDescription = "Save")
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Save")
+                }
+            }
+        }
     }
 }
 
 @Preview(showBackground = true)
 @Composable
-private fun EventEditPreview() {
-    MaterialTheme {
-        UpdateEventScreen(id = -1, onDone = {}, onCancel = {})
-    }
+private fun UpdateEventPreview() {
+    MaterialTheme { }
 }
+

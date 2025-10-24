@@ -4,27 +4,30 @@ import android.content.Intent
 import android.net.Uri
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import ca.gbc.comp3074.campusly.data.CampuslyFakeData
-import ca.gbc.comp3074.campusly.data.Event
+import androidx.lifecycle.viewmodel.compose.viewModel
 
 @Composable
 fun EventDetailsScreen(
     eventId: Long,
+    viewModel: EventViewModel,
     onBack: () -> Unit,
-    onRSVP: () -> Unit
+    onEditClick: (Long) -> Unit = {}
 ) {
-    val event = CampuslyFakeData.Event.find { it.id == eventId }
+    // Fetch the event by ID from Room
+    val event = viewModel.getEventById(eventId).collectAsState(initial = null).value
 
     if (event == null) {
         Box(
-            Modifier.fillMaxSize(),
-            contentAlignment = androidx.compose.ui.Alignment.Center
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center
         ) {
             Text("Event not found", style = MaterialTheme.typography.bodyLarge)
         }
@@ -44,21 +47,32 @@ fun EventDetailsScreen(
 
         Spacer(Modifier.height(20.dp))
 
-        Button(onClick = onRSVP ){
-            Text("RSVP to this Event")
+        // 🔹 RSVP Button
+        OutlinedButton(onClick = { viewModel.toggleRsvp(event) },
+            colors = ButtonDefaults.buttonColors(containerColor = accentYellow, contentColor = Color.Black)) {
+            Text(if (event.rsvp) "Going ✅" else "RSVP to this Event")
         }
 
-        Button(onClick = {
-            // Launch Google Maps with directions from current location
+        // 🔹 Open in Google Maps
+        OutlinedButton(
+            onClick = {
             val gmmIntentUri = Uri.parse("google.navigation:q=${Uri.encode(event.location)}")
             val mapIntent = Intent(Intent.ACTION_VIEW, gmmIntentUri)
             mapIntent.setPackage("com.google.android.apps.maps")
-            onBack() // optional navigation after opening
-        }) {
+        },
+            colors = ButtonDefaults.buttonColors(containerColor = accentYellow, contentColor = Color.Black)) {
             Text("Get Directions")
         }
 
-        OutlinedButton(onClick = onBack) {
+        // 🔹 Edit Event
+        OutlinedButton(onClick = { onEditClick(event.id) },
+            colors = ButtonDefaults.buttonColors(containerColor = accentYellow, contentColor = Color.Black)) {
+            Text("Edit Event")
+        }
+
+        // 🔹 Back Button
+        OutlinedButton(onClick = onBack,
+            colors = ButtonDefaults.buttonColors(containerColor = accentYellow, contentColor = Color.Black)) {
             Text("Back to Events")
         }
     }
@@ -67,5 +81,7 @@ fun EventDetailsScreen(
 @Preview(showBackground = true)
 @Composable
 private fun EventDetailsPreview() {
-    MaterialTheme { EventDetailsScreen(eventId = 1, onRSVP = {}, onBack = {}) }
+    MaterialTheme {
+        //PlaceDetailsScreen(id = 2)
+    }
 }
