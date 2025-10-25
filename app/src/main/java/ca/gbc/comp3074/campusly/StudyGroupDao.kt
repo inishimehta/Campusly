@@ -12,4 +12,7 @@ interface StudyGroupDao {
 
     @Insert
     suspend fun insertGroup(group: StudyGroupEntity)
+
+    @Query("DELETE FROM study_groups WHERE id = :id")
+    suspend fun deleteGroupById(id: Int)
 }

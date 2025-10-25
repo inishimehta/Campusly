@@ -5,9 +5,11 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import ca.gbc.comp3074.campusly.StudyGroup
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -21,8 +23,6 @@ val dotWhite = Color(0xFFFFFFFF)
 val accentYellow = Color(0xFFFFC542)
 val accentGreen = Color(0xFF388E3C)
 val accentRed = Color(0xFFA61515)
-
-data class StudyGroup(val name: String, val description: String)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -61,7 +61,6 @@ fun StudyGroupsScreen(
                 .padding(innerPadding)
                 .padding(16.dp)
         ) {
-
             // Group List
             LazyColumn(modifier = Modifier.weight(1f)) {
                 items(filteredGroups) { group ->
@@ -105,10 +104,30 @@ fun StudyGroupsScreen(
                             ) {
                                 Text(if (isJoined) "Leave" else "Join")
                             }
+                            Spacer(modifier = Modifier.width(8.dp))
+                            // Delete Button
+                            IconButton(
+                                onClick = { viewModel.deleteStudyGroup(group.id, group.name) }
+                            ) {
+                                Icon(
+                                    Icons.Default.Delete,
+                                    contentDescription = "Delete Group",
+                                    tint = accentRed
+                                )
+                            }
                         }
                     }
                 }
             }
+
+            // Section Divider for visual separation
+            Divider(
+                color = dotGrey,
+                thickness = 2.dp,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 16.dp)
+            )
 
             // Joined Groups List
             if (viewModel.joinedGroups.isNotEmpty()) {
