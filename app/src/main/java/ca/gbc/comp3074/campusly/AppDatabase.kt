@@ -6,13 +6,24 @@ import androidx.room.Room
 import androidx.room.RoomDatabase
 
 @Database(
-    entities = [StudyGroupEntity::class, EventEntity::class],
-    version = 2,
+    entities = [
+        StudyGroupEntity::class,
+        EventEntity::class,
+        GroupAnnouncementEntity::class,
+        GroupTaskEntity::class
+    ],
+    version = 3,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
+
+    // Existing DAOs
     abstract fun studyGroupDao(): StudyGroupDao
     abstract fun eventDao(): EventDao
+
+    // New DAOs for the Study Group Hub
+    abstract fun groupAnnouncementDao(): GroupAnnouncementDao
+    abstract fun groupTaskDao(): GroupTaskDao
 
     companion object {
         @Volatile
@@ -25,8 +36,9 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "campusly_database"
                 )
-                .fallbackToDestructiveMigration()
-                .build()
+                    // OK for now while iterating; replace with proper Migration when stable
+                    .fallbackToDestructiveMigration()
+                    .build()
                 INSTANCE = instance
                 instance
             }

@@ -1,5 +1,6 @@
 package ca.gbc.comp3074.campusly
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -7,13 +8,16 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import ca.gbc.comp3074.campusly.StudyGroup
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import android.content.Intent
+import android.net.Uri
 
 // Brand colors
 val blueStart = Color(0xFF2152FF)
@@ -29,13 +33,24 @@ val accentRed = Color(0xFFA61515)
 fun StudyGroupsScreen(
     viewModel: StudyGroupViewModel,
     onBack: () -> Unit,
-    onGoHome: () -> Unit
+    onGoHome: () -> Unit,
+    onOpenGroup: (id: Int, name: String) -> Unit
 ) {
     val groups by viewModel.allGroups.collectAsState()
+    val validJoins by viewModel.validJoinedGroups.collectAsState()
     var searchQuery by remember { mutableStateOf("") }
+    val ctx = LocalContext.current
 
-    val filteredGroups = if (searchQuery.isBlank()) groups else {
-        groups.filter { it.name.contains(searchQuery, ignoreCase = true) }
+    fun shareGroup(name: String, id: Int) {
+        val link = "https://campusly.app/group/$id?name=" + Uri.encode(name)
+        val subject = "Join the \"$name\" study group on Campusly"
+        val text = "Check out \"$name\" on Campusly:\n$link"
+        val intent = Intent(Intent.ACTION_SEND).apply {
+            type = "text/plain"
+            putExtra(Intent.EXTRA_SUBJECT, subject)
+            putExtra(Intent.EXTRA_TEXT, text)
+        }
+        ctx.startActivity(Intent.createChooser(intent, "Share group"))
     }
 
     Scaffold(
@@ -61,16 +76,31 @@ fun StudyGroupsScreen(
                 .padding(innerPadding)
                 .padding(16.dp)
         ) {
+            // Search box
+            OutlinedTextField(
+                value = searchQuery,
+                onValueChange = { searchQuery = it },
+                label = { Text("Search groups") },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 12.dp),
+                singleLine = true
+            )
+
+            val filteredGroups = if (searchQuery.isBlank()) groups else {
+                val q = searchQuery.trim()
+                groups.filter { it.name.contains(q, true) || it.description.contains(q, true) }
+            }
+
             // Group List
             LazyColumn(modifier = Modifier.weight(1f)) {
                 items(filteredGroups) { group ->
                     Card(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(vertical = 8.dp),
-                        colors = CardDefaults.cardColors(
-                            containerColor = dotWhite
-                        ),
+                            .padding(vertical = 8.dp)
+                            .clickable { onOpenGroup(group.id, group.name) },
+                        colors = CardDefaults.cardColors(containerColor = dotWhite),
                         elevation = CardDefaults.cardElevation(6.dp)
                     ) {
                         Row(
@@ -79,41 +109,47 @@ fun StudyGroupsScreen(
                                 .padding(16.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Column(
-                                modifier = Modifier.weight(1f)
-                            ) {
-                                Text(
-                                    group.name,
-                                    style = MaterialTheme.typography.titleMedium,
-                                    color = blueEnd
-                                )
-                                Spacer(modifier = Modifier.height(4.dp))
-                                Text(
-                                    group.description,
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = Color.Black
-                                )
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(group.name, style = MaterialTheme.typography.titleMedium, color = blueEnd)
+                                Spacer(Modifier.height(4.dp))
+                                Text(group.description, style = MaterialTheme.typography.bodyMedium, color = Color.Black)
+
+                                // Actions below title/description
+                                Spacer(Modifier.height(12.dp))
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    val isJoined = validJoins.contains(group.name)
+                                    Button(
+                                        onClick = { viewModel.toggleJoinGroup(group.name) },
+                                        colors = ButtonDefaults.buttonColors(
+                                            containerColor = if (isJoined) accentRed else accentGreen,
+                                            contentColor = Color.White
+                                        )
+                                    ) { Text(if (isJoined) "Leave" else "Join") }
+
+                                    Spacer(Modifier.width(8.dp))
+
+                                    IconButton(onClick = { shareGroup(group.name, group.id) }) {
+                                        Icon(Icons.Default.Share, contentDescription = "Share Group")
+                                    }
+
+                                    TextButton(onClick = {
+                                        val link = "https://campusly.app/group/${group.id}?name=" + Uri.encode(group.name)
+                                        val url = "https://www.facebook.com/sharer/sharer.php?u=" + Uri.encode(link)
+                                        ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+                                    }) { Text("Facebook") }
+
+                                    TextButton(onClick = {
+                                        val link = "https://campusly.app/group/${group.id}?name=" + Uri.encode(group.name)
+                                        val text = "Join the \"${group.name}\" study group on Campusly\n$link"
+                                        val url = "https://twitter.com/intent/tweet?text=" + Uri.encode(text)
+                                        ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+                                    }) { Text("Twitter") }
+                                }
                             }
-                            val isJoined = viewModel.joinedGroups.contains(group.name)
-                            Button(
-                                onClick = { viewModel.toggleJoinGroup(group.name) },
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = if (isJoined) accentRed else accentGreen,
-                                    contentColor = Color.White
-                                )
-                            ) {
-                                Text(if (isJoined) "Leave" else "Join")
-                            }
-                            Spacer(modifier = Modifier.width(8.dp))
-                            // Delete Button
-                            IconButton(
-                                onClick = { viewModel.deleteStudyGroup(group.id, group.name) }
-                            ) {
-                                Icon(
-                                    Icons.Default.Delete,
-                                    contentDescription = "Delete Group",
-                                    tint = accentRed
-                                )
+
+                            // Keep delete aligned to the right edge
+                            IconButton(onClick = { viewModel.deleteStudyGroup(group.id, group.name) }) {
+                                Icon(Icons.Default.Delete, contentDescription = "Delete Group", tint = accentRed)
                             }
                         }
                     }
@@ -129,12 +165,11 @@ fun StudyGroupsScreen(
                     .padding(vertical = 16.dp)
             )
 
-            // Joined Groups List
-            if (viewModel.joinedGroups.isNotEmpty()) {
+            // Joined Groups List (uses validJoinedGroups)
+            if (validJoins.isNotEmpty()) {
                 Text("Joined Groups:", style = MaterialTheme.typography.titleMedium, color = blueEnd)
                 Spacer(modifier = Modifier.height(8.dp))
-                val groupList: List<String> = viewModel.joinedGroups.toList()
-                for (groupName in groupList) {
+                validJoins.forEach { groupName ->
                     Text("- $groupName", style = MaterialTheme.typography.bodyMedium, color = Color.Black)
                 }
                 Spacer(modifier = Modifier.height(16.dp))

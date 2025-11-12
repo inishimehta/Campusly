@@ -11,8 +11,12 @@ interface StudyGroupDao {
     fun getAllGroups(): Flow<List<StudyGroupEntity>>
 
     @Insert
-    suspend fun insertGroup(group: StudyGroupEntity)
+    suspend fun insertGroup(group: StudyGroupEntity): Long
 
     @Query("DELETE FROM study_groups WHERE id = :id")
     suspend fun deleteGroupById(id: Int)
+
+    // For seeding: return table count
+    @Query("SELECT COUNT(*) FROM study_groups")
+    suspend fun count(): Int
 }
