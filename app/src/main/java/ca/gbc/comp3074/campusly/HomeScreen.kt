@@ -105,7 +105,7 @@ fun HomeScreen(
                     modifier = Modifier.weight(1f)
                         .width(150.dp)
                         .height(200.dp),
-                    iconBackgroundColor = Color(0xFF1E88E5) // Blue
+                    iconBackgroundColor = Color(0xFF43A047) // Green
                 )
 
                 FeatureCard(
@@ -116,7 +116,7 @@ fun HomeScreen(
                     modifier = Modifier.weight(1f)
                         .width(150.dp)
                         .height(200.dp),
-                    iconBackgroundColor = Color(0xFF43A047) // Green
+                    iconBackgroundColor = Color(0xFF8E24AA) // Purple
                 )
             }
 
@@ -132,7 +132,7 @@ fun HomeScreen(
                     modifier = Modifier.weight(1f)
                         .width(150.dp)
                         .height(200.dp),
-                    iconBackgroundColor = Color(0xFF8E24AA) // Purple
+                    iconBackgroundColor = Color(0xFF1E88E5) // Blue
                 )
 
                 FeatureCard(
@@ -163,19 +163,19 @@ fun HomeScreen(
                 "Maps",
                 Icons.Default.Map,
                 onClick = { openUrl("https://www.georgebrown.ca/about/campuses-locations") },
-                backgroundColor = Color(0xFFFFB74D)
+                backgroundColor = Color(0xFFBFDBFE)
             )
             QuickLink(
                 "Clubs",
                 Icons.Default.Star,
                 onClick = { openUrl("https://www.georgebrown.ca/current-students/campus-activities-clubs/student-clubs") },
-                backgroundColor = Color(0xFFBA68C8)
+                backgroundColor = Color(0xFFBFDBFE)
             )
             QuickLink(
                 "Services",
                 Icons.Default.HeadsetMic,
                 onClick = { openUrl("https://www.georgebrown.ca/current-students/services") },
-                backgroundColor = Color(0xFFE57373)
+                backgroundColor = Color(0xFFBFDBFE)
             )
         }
 
@@ -229,7 +229,8 @@ fun QuickLink(
     title: String,
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     onClick: () -> Unit,
-    backgroundColor: Color = Color(0xFFE3F2FD)
+    backgroundColor: Color = Color(0xFFE3F2FD),
+    iconTint: Color = Color(0xFF1F2937)
 ) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -241,7 +242,10 @@ fun QuickLink(
             modifier = Modifier.size(60.dp)
         ) {
             Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
-                Icon(icon, contentDescription = title, tint = Color.White)
+                Icon(
+                    icon,
+                    contentDescription = title,
+                    tint = iconTint)
             }
         }
         Spacer(modifier = Modifier.height(4.dp))
