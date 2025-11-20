@@ -7,6 +7,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -14,16 +15,15 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.platform.LocalContext
+import android.content.Intent
+import android.net.Uri
+import androidx.compose.foundation.background
 import androidx.compose.material.icons.filled.Map
 import androidx.compose.material.icons.filled.HeadsetMic
 import androidx.compose.material.icons.filled.People
 import androidx.compose.material.icons.filled.Campaign
 import androidx.compose.material.icons.filled.Star
-import androidx.compose.ui.platform.LocalContext
-import ca.gbc.comp3074.campusly.CampuslyTopBar
-import android.content.Intent
-import android.net.Uri
-import androidx.compose.foundation.background
 
 @Composable
 fun HomeScreen(
@@ -41,31 +41,30 @@ fun HomeScreen(
         context.startActivity(intent)
     }
 
+    // 🔥 List of rotating tips
+    val tips = listOf(
+        "Remember to check your campus email daily for important updates!",
+        "Join a study group to make learning easier and more fun!",
+        "Stay hydrated—use the refill stations around campus!",
+        "Visit the library early to find quiet study spaces.",
+        "Attend campus events to meet new people and grow your network.",
+        "Take short breaks during studying to stay productive.",
+        "Use office hours to ask professors questions!"
+    )
+
+    // 🔥 Pick a new random tip every time HomeScreen loads
+    val tipOfTheDay = remember { tips.random() }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        // Top bar
-//        Row(
-//            modifier = Modifier.fillMaxWidth(),
-//            horizontalArrangement = Arrangement.SpaceBetween,
-//            verticalAlignment = Alignment.CenterVertically
-//        ) {
-//            Text(
-//                "Campusly",
-//                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
-//                modifier = Modifier.clickable { onAbout() }
-//            )
-//            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-//                Icon(imageVector = Icons.Default.Notifications, contentDescription = "Notifications")
-//                Icon(imageVector = Icons.Default.Person, contentDescription = "Profile")
-//            }
-//        }
+
         CampuslyTopBar(onTitleClick = onAbout)
 
-        // Welcome Card
+        // ⭐ Welcome Card with rotating tip
         Card(
             colors = CardDefaults.cardColors(containerColor = Color(0xFF1E88E5)),
             shape = RoundedCornerShape(12.dp),
@@ -84,8 +83,10 @@ fun HomeScreen(
                     color = Color.Yellow,
                     fontWeight = FontWeight.SemiBold
                 )
+
+                // 🔥 Dynamic tip
                 Text(
-                    "Remember to check your campus email daily for important updates!",
+                    tipOfTheDay,
                     color = Color.White
                 )
             }
@@ -105,7 +106,7 @@ fun HomeScreen(
                     modifier = Modifier.weight(1f)
                         .width(150.dp)
                         .height(200.dp),
-                    iconBackgroundColor = Color(0xFF43A047) // Green
+                    iconBackgroundColor = Color(0xFF43A047)
                 )
 
                 FeatureCard(
@@ -116,7 +117,7 @@ fun HomeScreen(
                     modifier = Modifier.weight(1f)
                         .width(150.dp)
                         .height(200.dp),
-                    iconBackgroundColor = Color(0xFF8E24AA) // Purple
+                    iconBackgroundColor = Color(0xFF8E24AA)
                 )
             }
 
@@ -132,7 +133,7 @@ fun HomeScreen(
                     modifier = Modifier.weight(1f)
                         .width(150.dp)
                         .height(200.dp),
-                    iconBackgroundColor = Color(0xFF1E88E5) // Blue
+                    iconBackgroundColor = Color(0xFF1E88E5)
                 )
 
                 FeatureCard(
@@ -143,18 +144,18 @@ fun HomeScreen(
                     modifier = Modifier.weight(1f)
                         .width(150.dp)
                         .height(200.dp),
-                    iconBackgroundColor = Color(0xFFFB8C00) // Orange
+                    iconBackgroundColor = Color(0xFFFB8C00)
                 )
             }
 
         }
 
-        // Quick Links
         Text(
             "Quick Links",
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.Bold
         )
+
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceEvenly
@@ -178,10 +179,8 @@ fun HomeScreen(
                 backgroundColor = Color(0xFFBFDBFE)
             )
         }
-
     }
-    }
-
+}
 
 @Composable
 fun FeatureCard(
@@ -191,23 +190,19 @@ fun FeatureCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     iconBackgroundColor: Color = Color(0xFFE3F2FD)
-
 ) {
     Card(
         onClick = onClick,
-        modifier = modifier
-            .height(130.dp), // makes it rectangular
+        modifier = modifier.height(130.dp),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White),
         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
     ) {
         Column(
-            modifier = Modifier
-                .padding(16.dp),
+            modifier = Modifier.padding(16.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            // Circle behind icon
             Box(
                 modifier = Modifier
                     .size(48.dp)
@@ -242,10 +237,7 @@ fun QuickLink(
             modifier = Modifier.size(60.dp)
         ) {
             Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
-                Icon(
-                    icon,
-                    contentDescription = title,
-                    tint = iconTint)
+                Icon(icon, contentDescription = title, tint = iconTint)
             }
         }
         Spacer(modifier = Modifier.height(4.dp))

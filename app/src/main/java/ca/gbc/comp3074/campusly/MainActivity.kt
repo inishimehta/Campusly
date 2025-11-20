@@ -7,14 +7,14 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import ca.gbc.comp3074.campusly.ui.*
-import androidx.lifecycle.viewmodel.compose.viewModel
-import androidx.lifecycle.ViewModelProvider
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -27,9 +27,16 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun CampuslyApp() {
     val nav = rememberNavController()
-    MaterialTheme {
-        NavHost(navController = nav, startDestination = "splash") {
 
+    MaterialTheme {
+        NavHost(
+            navController = nav,
+            startDestination = "splash"
+        ) {
+
+            // -------------------------------------------------------------
+            // Splash Screen
+            // -------------------------------------------------------------
             composable("splash") {
                 SplashScreen(
                     onDone = {
@@ -40,6 +47,9 @@ fun CampuslyApp() {
                 )
             }
 
+            // -------------------------------------------------------------
+            // Home Screen
+            // -------------------------------------------------------------
             composable("home") {
                 HomeScreen(
                     onPlaces = { nav.navigate("places") },
@@ -55,10 +65,24 @@ fun CampuslyApp() {
                 )
             }
 
+            // -------------------------------------------------------------
+            // Announcements Screen (CRUD)
+            // -------------------------------------------------------------
             composable("announcements") {
-                AnnouncementsScreen(onBack = { nav.popBackStack() })
+                val announcementVm: AnnouncementViewModel = viewModel(
+                    factory = ViewModelProvider.AndroidViewModelFactory(
+                        LocalContext.current.applicationContext as android.app.Application
+                    )
+                )
+                AnnouncementsScreen(
+                    viewModel = announcementVm,
+                    onBack = { nav.popBackStack() }
+                )
             }
 
+            // -------------------------------------------------------------
+            // Places List
+            // -------------------------------------------------------------
             composable("places") {
                 PlacesListScreen(
                     onOpenDetails = { id -> nav.navigate("placeDetails/$id") },
@@ -66,6 +90,9 @@ fun CampuslyApp() {
                 )
             }
 
+            // -------------------------------------------------------------
+            // Place Details
+            // -------------------------------------------------------------
             composable(
                 route = "placeDetails/{id}",
                 arguments = listOf(navArgument("id") { type = NavType.LongType })
@@ -83,6 +110,9 @@ fun CampuslyApp() {
                 )
             }
 
+            // -------------------------------------------------------------
+            // Place Edit Screen
+            // -------------------------------------------------------------
             composable(
                 route = "placeEdit?id={id}",
                 arguments = listOf(navArgument("id") {
@@ -98,7 +128,9 @@ fun CampuslyApp() {
                 )
             }
 
-            // Study groups list
+            // -------------------------------------------------------------
+            // Study Groups
+            // -------------------------------------------------------------
             composable("studyGroups") {
                 val vm: StudyGroupViewModel = viewModel(
                     factory = ViewModelProvider.AndroidViewModelFactory(
@@ -113,19 +145,23 @@ fun CampuslyApp() {
                             popUpTo("home") { inclusive = true }
                         }
                     },
-                    onOpenGroup = { id, name -> nav.navigate("group/$id/$name") } // ADDED
+                    onOpenGroup = { id, name -> nav.navigate("group/$id/$name") }
                 )
             }
 
-            // Group hub (Announcements + Tasks)
+            // -------------------------------------------------------------
+            // Study Group Details (Announcements + Tasks)
+            // -------------------------------------------------------------
             composable("group/{id}/{name}") { backStackEntry ->
                 val id = backStackEntry.arguments?.getString("id")?.toInt() ?: return@composable
                 val name = backStackEntry.arguments?.getString("name") ?: "Study Group"
+
                 val groupVm: GroupViewModel = viewModel(
                     factory = ViewModelProvider.AndroidViewModelFactory(
                         LocalContext.current.applicationContext as android.app.Application
                     )
                 )
+
                 StudyGroupDetailScreen(
                     groupId = id,
                     groupName = name,
@@ -134,7 +170,9 @@ fun CampuslyApp() {
                 )
             }
 
-            // Events
+            // -------------------------------------------------------------
+            // Event List
+            // -------------------------------------------------------------
             composable("eventList") {
                 val eventViewModel: EventViewModel = viewModel(
                     factory = EventViewModelFactory(
@@ -148,6 +186,9 @@ fun CampuslyApp() {
                 )
             }
 
+            // -------------------------------------------------------------
+            // Event Details
+            // -------------------------------------------------------------
             composable("eventDetails/{eventId}") { backStackEntry ->
                 val eventId = backStackEntry.arguments?.getString("eventId")?.toLong() ?: 0L
                 val eventViewModel: EventViewModel = viewModel(
@@ -163,6 +204,9 @@ fun CampuslyApp() {
                 )
             }
 
+            // -------------------------------------------------------------
+            // Event Edit Screen
+            // -------------------------------------------------------------
             composable("eventUpdate/{eventId}") { backStackEntry ->
                 val eventId = backStackEntry.arguments?.getString("eventId")?.toLong() ?: 0L
                 val eventViewModel: EventViewModel = viewModel(
@@ -178,6 +222,9 @@ fun CampuslyApp() {
                 )
             }
 
+            // -------------------------------------------------------------
+            // About Screen
+            // -------------------------------------------------------------
             composable("about") {
                 AboutScreen(
                     onBack = { nav.popBackStack() },

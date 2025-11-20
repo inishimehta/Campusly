@@ -10,9 +10,10 @@ import androidx.room.RoomDatabase
         StudyGroupEntity::class,
         EventEntity::class,
         GroupAnnouncementEntity::class,
-        GroupTaskEntity::class
+        GroupTaskEntity::class,
+        AnnouncementEntity::class
     ],
-    version = 3,
+    version = 8,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -24,6 +25,10 @@ abstract class AppDatabase : RoomDatabase() {
     // New DAOs for the Study Group Hub
     abstract fun groupAnnouncementDao(): GroupAnnouncementDao
     abstract fun groupTaskDao(): GroupTaskDao
+
+    //New DAO for Announcements
+    abstract fun announcementDao(): AnnouncementDao
+
 
     companion object {
         @Volatile
