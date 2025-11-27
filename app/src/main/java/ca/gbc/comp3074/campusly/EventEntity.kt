@@ -8,7 +8,13 @@ data class EventEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val name: String,
     val location: String,
-    val dateTime: String,
+    val date: String,
+    val time: String,
     val description: String,
+    val category: String,
+    val tags: List<String>,
+    val attendees: Int,
+    val imageUrl: String?,
+    val localImageUri: String?,
     val rsvp: Boolean = false
 )

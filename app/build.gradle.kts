@@ -83,6 +83,8 @@ dependencies {
     implementation(libs.androidx.navigation.compose)
     implementation(libs.places)
     implementation("androidx.compose.material:material-icons-extended-android:1.6.8")
+    implementation("androidx.compose.material:material-icons-extended")
+    implementation("io.coil-kt:coil-compose:2.5.0")
 
     // Room Dependencies
 // Corrected dependencies using the version catalog

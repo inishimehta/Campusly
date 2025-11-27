@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
+import androidx.room.TypeConverters
 
 @Database(
     entities = [
@@ -13,9 +14,10 @@ import androidx.room.RoomDatabase
         GroupTaskEntity::class,
         AnnouncementEntity::class
     ],
-    version = 8,
+    version = 9,
     exportSchema = false
 )
+@TypeConverters(Converters::class)
 abstract class AppDatabase : RoomDatabase() {
 
     // Existing DAOs

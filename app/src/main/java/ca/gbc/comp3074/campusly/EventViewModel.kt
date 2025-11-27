@@ -21,9 +21,33 @@ class EventViewModel(application: Application) : AndroidViewModel(application) {
         .map { list -> list.filter { it.rsvp } }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    fun addEvent(name: String, location: String, dateTime: String, description: String) {
+    fun addEvent(
+        name: String,
+        location: String,
+        date: String,
+        time: String,
+        description: String,
+        category: String,
+        tags: List<String>,
+        attendees: Int,
+        imageUrl: String?,
+        localImageUri: String?
+    ) {
         viewModelScope.launch {
-            dao.insertEvent(EventEntity(name = name, location = location, dateTime = dateTime, description = description))
+            dao.insertEvent(
+                EventEntity(
+                    name = name,
+                    location = location,
+                    date = date,
+                    time = time,
+                    description = description,
+                    category = category,
+                    tags = tags,
+                    attendees = attendees,
+                    imageUrl = imageUrl,
+                    localImageUri = localImageUri
+                )
+            )
         }
     }
 

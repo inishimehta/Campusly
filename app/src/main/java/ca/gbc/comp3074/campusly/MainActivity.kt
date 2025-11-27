@@ -181,8 +181,9 @@ fun CampuslyApp() {
                 )
                 EventListScreen(
                     viewModel = eventViewModel,
-                    onEventClick = { eventId -> nav.navigate("eventDetails/$eventId") },
-                    onAddEvent = { nav.navigate("eventUpdate") }
+                    onEventClick = { id -> nav.navigate("eventDetails/$id") },
+                    onAddEvent = { nav.navigate("eventUpdate/-1") },
+                    onNavigateHome = { nav.navigate("home") { popUpTo("home") { inclusive = true } } }
                 )
             }
 
@@ -190,7 +191,7 @@ fun CampuslyApp() {
             // Event Details
             // -------------------------------------------------------------
             composable("eventDetails/{eventId}") { backStackEntry ->
-                val eventId = backStackEntry.arguments?.getString("eventId")?.toLong() ?: 0L
+                val eventId = backStackEntry.arguments?.getString("eventId")?.toLong() ?: -1L
                 val eventViewModel: EventViewModel = viewModel(
                     factory = EventViewModelFactory(
                         LocalContext.current.applicationContext as android.app.Application
@@ -205,10 +206,10 @@ fun CampuslyApp() {
             }
 
             // -------------------------------------------------------------
-            // Event Edit Screen
+            // Event Update/Edit Screen
             // -------------------------------------------------------------
             composable("eventUpdate/{eventId}") { backStackEntry ->
-                val eventId = backStackEntry.arguments?.getString("eventId")?.toLong() ?: 0L
+                val eventId = backStackEntry.arguments?.getString("eventId")?.toLong() ?: -1L
                 val eventViewModel: EventViewModel = viewModel(
                     factory = EventViewModelFactory(
                         LocalContext.current.applicationContext as android.app.Application
