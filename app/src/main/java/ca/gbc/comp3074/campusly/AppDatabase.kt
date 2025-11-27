@@ -12,9 +12,10 @@ import androidx.room.TypeConverters
         EventEntity::class,
         GroupAnnouncementEntity::class,
         GroupTaskEntity::class,
-        AnnouncementEntity::class
+        AnnouncementEntity::class,
+        PlaceEntity::class
     ],
-    version = 9,
+    version = 10,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -30,6 +31,9 @@ abstract class AppDatabase : RoomDatabase() {
 
     //New DAO for Announcements
     abstract fun announcementDao(): AnnouncementDao
+
+    //New DAO for places
+    abstract fun placeDao(): PlaceDao
 
 
     companion object {

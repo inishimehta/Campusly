@@ -1,16 +1,14 @@
 package ca.gbc.comp3074.campusly.data
+import ca.gbc.comp3074.campusly.PlaceEntity
 import ca.gbc.comp3074.campusly.R
+import java.lang.annotation.ElementType
 import java.time.LocalDateTime
 
 //private val Unit.student_centre: Int
+private const val PACKAGE = "ca.gbc.comp3074.campusly"
 
-data class Place(
-    val id: Long,
-    val name: String,
-    val tags: String,
-    val rating: Int,
-    val imageResId: Int
-)
+private fun resUri(resId: Int): String =
+    "android.resource://$PACKAGE/$resId"
 
 data class Event(
     val id: Long,
@@ -21,11 +19,42 @@ data class Event(
     val rsvp: Boolean = false
 )
 
+
+
 object CampuslyFakeData {
     val places = listOf(
-        Place(1, "Student Centre", "lounges, clubs, helpdesk", 5, R.drawable.student_centre),
-        Place(2, "Central Library", "study, quiet, printing", 5, R.drawable.central_library),
-        Place(3, "Campus Café", "coffee, snacks, chill", 4, R.drawable.campus_cafe)
+        PlaceEntity(
+            id = 0L,
+            name = "Student Library",
+            campus = "Casa Loma, toronto, canada",
+            description = "Quiet study space with computers, printers, and bookable rooms.",
+            rating = 4.8,
+            tags = listOf("Study", "Quiet", "Computers"),
+            isFeatured = true,
+            imageUri = resUri(R.drawable.central_library)
+        ),
+
+        PlaceEntity(
+            id = 0L,
+            name = "Student Hub",
+            campus = "St James, toronto, canada",
+            description = "Lounge area, study tables, coffee machines, and group work areas.",
+            rating = 4.5,
+            tags = listOf("Study", "Group Work", "Social"),
+            isFeatured = false,
+            imageUri = resUri(R.drawable.student_centre)
+        ),
+
+        PlaceEntity(
+            id = 0L,
+            name = "Cafeteria",
+            campus = "Casa Loma, toronto, canada",
+            description = "Large cafeteria with food, drinks, and plenty of seating.",
+            rating = 4.1,
+            tags = listOf("Food", "Social"),
+            isFeatured = false,
+            imageUri = resUri(R.drawable.campus_cafe)
+        )
     )
 
     val Event = listOf(

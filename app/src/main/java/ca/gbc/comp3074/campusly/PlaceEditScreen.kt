@@ -1,117 +1,232 @@
 package ca.gbc.comp3074.campusly
 
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Label
 import androidx.compose.material.icons.filled.Description
-import androidx.compose.material.icons.filled.Label
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Phone
-import androidx.compose.material3.Button
-import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.launch
 
 @Composable
-fun PlaceEditScreen(id: Long, onDone: () -> Unit, onCancel: () -> Unit) {
+fun PlaceEditScreen(
+    id: Long,
+    viewModel: PlacesViewModel,
+    onDone: () -> Unit,
+    onCancel: () -> Unit
+) {
+    // ---------- State ----------
     var name by rememberSaveable { mutableStateOf("") }
     var address by rememberSaveable { mutableStateOf("") }
     var tags by rememberSaveable { mutableStateOf("") }
     var phone by rememberSaveable { mutableStateOf("") }
     var desc by rememberSaveable { mutableStateOf("") }
-    var imagePath by rememberSaveable { mutableStateOf("") } // new field for image path
+    var imageUri by rememberSaveable { mutableStateOf<String?>(null) }
 
-    Column(
-        Modifier.fillMaxSize().padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-        Text("Add Place", style = MaterialTheme.typography.headlineSmall) // always show Add Place
+    val scope = rememberCoroutineScope()
 
-        Text ("Name", fontWeight = FontWeight.Bold)
-        OutlinedTextField(
-            value = name,
-            onValueChange = { name = it },
-            label = { Text("enter place name") },
-            placeholder = { Text("name") },
-            leadingIcon = { Icon(Icons.Default.Person, contentDescription = "Name") },
-            modifier = Modifier.fillMaxWidth()
-        )
-        Text("Address", fontWeight = FontWeight.Bold)
-        OutlinedTextField(
-            value = address,
-            onValueChange = { address = it },
-            label = { Text("Enter full address") },
-            placeholder = { Text("address") },
-            leadingIcon = { Icon(Icons.Default.LocationOn, contentDescription = "Address") },
-            modifier = Modifier.fillMaxWidth()
-        )
-        Text("Tags", fontWeight = FontWeight.Bold)
-        OutlinedTextField(
-            value = tags,
-            onValueChange = { tags = it },
-            label = { Text("tags study space, Wifi, 24/7 Access") },
-            placeholder = { Text("tags") },
-            leadingIcon = { Icon(Icons.Default.Label, contentDescription = "Tags") },
-            modifier = Modifier.fillMaxWidth()
-        )
-        Text("Phone", fontWeight = FontWeight.Bold)
-        OutlinedTextField(
-            value = phone,
-            onValueChange = { phone = it },
-            label = { Text("(555) 123-4567") },
-            placeholder = { Text("phone number") },
-            leadingIcon = { Icon(Icons.Default.Phone, contentDescription = "Phone") },
-            modifier = Modifier.fillMaxWidth()
-        )
-        Text("Description", fontWeight = FontWeight.Bold)
-        OutlinedTextField(
-            value = desc,
-            onValueChange = { desc = it },
-            label = { Text("Describe the place, its features, and what makes it special...") },
-            leadingIcon = { Icon(Icons.Default.Description, contentDescription = "Description") },
-            placeholder = { Text("description") },
-            modifier = Modifier.fillMaxWidth()
-        )
-
-        // Upload Image button (for selecting a file)
-        Button(onClick = { /* TODO: open file picker */ }, modifier = Modifier.fillMaxWidth()) {
-            Text(if (imagePath.isEmpty()) "Upload Image" else "Image Selected")
+    // ---------- Load existing data ----------
+    LaunchedEffect(id) {
+        if (id != -1L) {
+            viewModel.getPlaceById(id)?.let { place ->
+                name = place.name
+                address = place.campus
+                tags = place.tags.joinToString(", ")
+                desc = place.description
+                imageUri = place.imageUri
+            }
         }
+    }
 
-        RowButtons(onDone = onDone, onCancel = onCancel)
+    // ---------- Image Picker ----------
+    val imagePickerLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.GetContent()
+    ) { uri -> imageUri = uri?.toString() }
+
+    val bg = Color(0xFFF2F2F6)
+
+    Scaffold(
+        containerColor = bg,
+
+        // ---------------- HEADER ----------------
+        topBar = {
+            Column {
+                Spacer(Modifier.height(18.dp))
+                Box(
+                    Modifier
+                        .fillMaxWidth()
+                        .background(Color.White)
+                        .padding(horizontal = 20.dp, vertical = 14.dp)
+                ) {
+                    Text(
+                        if (id == -1L) "Add Place" else "Edit Place",
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+                Divider(color = Color(0xFFE5E5EA))
+            }
+        },
+
+        // ---------------- BOTTOM BUTTONS ----------------
+        bottomBar = {
+            Box(
+                Modifier
+                    .background(Color.White)
+                    .padding(16.dp)
+            ) {
+                Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    OutlinedButton(
+                        onClick = onCancel,
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(14.dp)
+                    ) {
+                        Text("Cancel")
+                    }
+
+                    Button(
+                        onClick = {
+                            val entity = PlaceEntity(
+                                id = if (id == -1L) 0L else id,
+                                name = name,
+                                campus = address,
+                                description = desc,
+                                rating = 0.0,
+                                tags = if (tags.isBlank()) emptyList()
+                                else tags.split(",").map { it.trim() },
+                                isFeatured = false,
+                                imageUri = imageUri
+                            )
+
+                            scope.launch {
+                                viewModel.addOrUpdatePlace(entity)
+                                onDone()
+                            }
+                        },
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(14.dp)
+                    ) {
+                        Text("Save")
+                    }
+                }
+            }
+        }
+    ) { padding ->
+
+        Column(
+            Modifier
+                .padding(padding)
+                .padding(horizontal = 16.dp, vertical = 12.dp)
+                .fillMaxSize(),
+            verticalArrangement = Arrangement.spacedBy(18.dp)
+        ) {
+
+            RoundedInput(
+                label = "Name",
+                placeholder = "Enter place name",
+                icon = Icons.Default.Person,
+                value = name,
+                onValueChange = { name = it }
+            )
+
+            RoundedInput(
+                label = "Address",
+                placeholder = "Enter full address",
+                icon = Icons.Default.LocationOn,
+                value = address,
+                onValueChange = { address = it }
+            )
+
+            Column {
+                RoundedInput(
+                    label = "Tags",
+                    placeholder = "Study Space, WiFi, 24/7 Access",
+                    icon = Icons.AutoMirrored.Filled.Label,
+                    value = tags,
+                    onValueChange = { tags = it }
+                )
+                Text("Use commas to add multiple tags.", color = Color.Gray)
+            }
+
+            RoundedInput(
+                label = "Phone",
+                placeholder = "(555) 123-4567",
+                icon = Icons.Default.Phone,
+                value = phone,
+                onValueChange = { phone = it }
+            )
+
+            RoundedInput(
+                label = "Description",
+                placeholder = "Describe the place...",
+                icon = Icons.Default.Description,
+                value = desc,
+                onValueChange = { desc = it },
+                singleLine = false,
+                height = 120.dp
+            )
+
+            Column {
+                Text("Upload Photo", fontWeight = FontWeight.Bold)
+
+                OutlinedButton(
+                    onClick = { imagePickerLauncher.launch("image/*") },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(48.dp),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Text(
+                        if (imageUri == null) "Choose File" else "Image Selected ✔"
+                    )
+                }
+            }
+
+            Spacer(Modifier.weight(1f))
+        }
     }
 }
 
 @Composable
-private fun RowButtons(onDone: () -> Unit, onCancel: () -> Unit) {
-    androidx.compose.foundation.layout.Row(
-        modifier = Modifier.fillMaxSize(),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        verticalAlignment = Alignment.Bottom
-    ) {
-        Button(onClick = onCancel) { Text("Cancel") }
-        Button(onClick = onDone) { Text("Save") }
-    }
-}
+private fun RoundedInput(
+    label: String,
+    placeholder: String,
+    icon: ImageVector,
+    value: String,
+    onValueChange: (String) -> Unit,
+    singleLine: Boolean = true,
+    height: Dp = 56.dp
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Text(label, fontWeight = FontWeight.Bold)
 
-@Preview(showBackground = true)
-@Composable
-private fun EditPreview() {
-    MaterialTheme { PlaceEditScreen(id = -1, onDone = {}, onCancel = {}) }
+        OutlinedTextField(
+            value = value,
+            onValueChange = onValueChange,
+            placeholder = { Text(placeholder, color = Color.Gray) },
+            leadingIcon = { Icon(icon, null, tint = Color.Gray) },
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(height),
+            shape = RoundedCornerShape(14.dp),
+            singleLine = singleLine
+        )
+    }
 }

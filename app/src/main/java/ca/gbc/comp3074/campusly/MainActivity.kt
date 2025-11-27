@@ -1,5 +1,6 @@
 package ca.gbc.comp3074.campusly
 
+import android.app.Application
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -27,6 +28,12 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun CampuslyApp() {
     val nav = rememberNavController()
+    val app = LocalContext.current.applicationContext as Application
+
+    // ✅ One shared PlacesViewModel for all place screens
+    val placesVm: PlacesViewModel = viewModel(
+        //factory = PlacesViewModelFactory(app)
+    )
 
     MaterialTheme {
         NavHost(
@@ -80,39 +87,47 @@ fun CampuslyApp() {
                 )
             }
 
-            // -------------------------------------------------------------
+            // ---------------------------------------------------
             // Places List
-            // -------------------------------------------------------------
+            // ---------------------------------------------------
             composable("places") {
                 PlacesListScreen(
+                    viewModel = placesVm,
                     onOpenDetails = { id -> nav.navigate("placeDetails/$id") },
-                    onAdd = { nav.navigate("placeEdit") }
+                    onAdd = { nav.navigate("placeEdit?id=-1") },
+                    onBack = { nav.popBackStack() }
                 )
             }
 
-            // -------------------------------------------------------------
+            // ---------------------------------------------------
             // Place Details
-            // -------------------------------------------------------------
+            // ---------------------------------------------------
             composable(
                 route = "placeDetails/{id}",
-                arguments = listOf(navArgument("id") { type = NavType.LongType })
+                arguments = listOf(navArgument("id")
+                {
+                    type = NavType.LongType
+                })
             ) { backStack ->
                 val id = backStack.arguments?.getLong("id") ?: -1L
+
                 PlaceDetailsScreen(
                     id = id,
-                    onEdit = { nav.navigate("placeEdit?id=$id") },
+                    vm = placesVm,
                     onBack = { nav.popBackStack() },
+                    onEdit = { nav.navigate("placeEdit?id=$id") },
                     onNavigateToPlace = { newId ->
-                        nav.navigate("placeDetails/$newId") {
-                            popUpTo("placeDetails/$id") { inclusive = true }
-                        }
+                        nav.navigate("placeDetails/$newId") { launchSingleTop = true }
+                    },
+                    onOpenMap = { address ->
+                        nav.navigate("mapScreen/$address")
                     }
                 )
             }
 
-            // -------------------------------------------------------------
+            // ---------------------------------------------------
             // Place Edit Screen
-            // -------------------------------------------------------------
+            // ---------------------------------------------------
             composable(
                 route = "placeEdit?id={id}",
                 arguments = listOf(navArgument("id") {
@@ -121,12 +136,33 @@ fun CampuslyApp() {
                 })
             ) { backStack ->
                 val id = backStack.arguments?.getLong("id") ?: -1L
+
                 PlaceEditScreen(
                     id = id,
-                    onDone = { nav.popBackStack() },
+                    viewModel = placesVm,
+                    onDone = {
+                        nav.navigate("places") {
+                            popUpTo("places") { inclusive = false }
+                        }
+                    },
                     onCancel = { nav.popBackStack() }
                 )
             }
+
+            // ---------------------------------------------------
+            // View Full Map Screen
+            // ---------------------------------------------------
+            composable(
+                "mapScreen/{address}",
+                arguments = listOf(navArgument("address") { type = NavType.StringType })
+            ) { backStack ->
+                val address = backStack.arguments?.getString("address") ?: ""
+                MapScreen(
+                    address = address,
+                    onBack = { nav.popBackStack() }
+                )
+            }
+
 
             // -------------------------------------------------------------
             // Study Groups
