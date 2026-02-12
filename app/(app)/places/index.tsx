@@ -21,7 +21,7 @@ type CampusKey = "all" | "stjames" | "waterfront" | "casaloma";
 type PlaceItem = {
   id: string;
   name: string;
-  campus: string; // we keep as string because your DB might have "st.james" / "St. James"
+  campus: string; 
   rating: number;
   reviewsCount: number;
   tags: string[];
@@ -40,7 +40,7 @@ const CAMPUS_LABEL: Record<CampusKey, string> = {
   casaloma: "Casa Loma",
 };
 
-// fallback images so cards never look blank
+
 const FALLBACK_IMG = {
   stjames:
     "https://images.unsplash.com/photo-1524995997946-a1c2e315a42f?auto=format&fit=crop&w=1400&q=80",
@@ -50,7 +50,7 @@ const FALLBACK_IMG = {
     "https://images.unsplash.com/photo-1521737604893-d14cc237f11d?auto=format&fit=crop&w=1400&q=80",
 } as const;
 
-// normalize campus string to our keys (handles st.james / St. James)
+
 function normalizeCampus(raw: any): CampusKey {
   const s = String(raw ?? "")
     .toLowerCase()
@@ -76,11 +76,7 @@ function imgFor(place?: Partial<PlaceItem>) {
   return FALLBACK_IMG.stjames;
 }
 
-// ✅ fixes all tag formats:
-// - ["Fitness","Wellness"]
-// - ["Fitness, Wellness, Recreation"]  <-- your case
-// - '["Fitness","Wellness"]'
-// - "Fitness, Wellness, Recreation"
+
 function normalizeTags(raw: any): string[] {
   const splitComma = (s: string) =>
     s
@@ -149,10 +145,7 @@ export default function PlacesIndex() {
   const [loading, setLoading] = useState(true);
   const [errMsg, setErrMsg] = useState<string>("");
 
-  // ✅ safest approach:
-  // - read all places
-  // - filter campus locally using normalizeCampus()
-  // This avoids issues where your Firestore has "st.james" vs "stjames"
+ 
   useEffect(() => {
     setLoading(true);
     setErrMsg("");
@@ -180,7 +173,7 @@ export default function PlacesIndex() {
           };
         });
 
-        // sort by rating desc so Featured looks good
+        
         rows.sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0));
 
         setPlaces(rows);
@@ -243,7 +236,7 @@ export default function PlacesIndex() {
           style={styles.searchInput}
         />
 
-        {/* ✅ filter icon opens campus modal */}
+        {/* filter icon opens campus modal */}
         <Pressable style={styles.slidersBtn} onPress={() => setCampusModal(true)}>
           <Ionicons name="options-outline" size={18} color="#111827" />
         </Pressable>

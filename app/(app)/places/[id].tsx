@@ -195,7 +195,7 @@ export default function PlaceDetails() {
   const p = place; 
 
 
-  // ✅ backticks are important here
+ 
   const addressQuery = encodeURIComponent(place.address || place.name);
   const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${addressQuery}`;
 
@@ -217,7 +217,7 @@ export default function PlaceDetails() {
     Linking.openURL(mapsUrl);
   }
 
-  // ✅ Rate should open reviews search (not mapsUrl again)
+  
   function onRate() {
     const q = encodeURIComponent(`${p.name} ${p.address || ""}`);
     Linking.openURL(`https://www.google.com/search?q=${q}+reviews`);
