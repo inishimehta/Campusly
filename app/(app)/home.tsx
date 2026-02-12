@@ -1,5 +1,10 @@
-import { useRouter } from "expo-router";
+import React, { useEffect, useMemo, useState } from "react";
+import { useRouter, type Href } from "expo-router";
 import { Pressable, StyleSheet, Text, View } from "react-native";
+import { doc, getDoc } from "firebase/firestore";
+import { auth, db } from "../../firebaseConfig";
+
+type Role = "student" | "staff" | "advisor" | "admin";
 
 function Tile({ title, onPress }: { title: string; onPress: () => void }) {
   return (
@@ -11,17 +16,44 @@ function Tile({ title, onPress }: { title: string; onPress: () => void }) {
 
 export default function Home() {
   const router = useRouter();
+  const [role, setRole] = useState<Role>("student");
+
+  const user = auth.currentUser;
+
+  const greeting = useMemo(() => {
+    if (role === "admin") return "welcome, admin!";
+    if (role === "staff") return "welcome, staff!";
+    if (role === "advisor") return "welcome, wellness advisor!";
+    return "welcome, students!";
+  }, [role]);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        if (!user) return;
+        const snap = await getDoc(doc(db, "users", user.uid));
+        if (snap.exists()) {
+          const r = (snap.data() as any)?.role as Role | undefined;
+          if (r) setRole(r);
+        }
+      } catch (e) {
+        // If Firestore fails, default stays student
+      }
+    })();
+  }, [user?.uid]);
 
   return (
     <View style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.brand}>Campusly</Text>
-        <View style={styles.avatar}>
-          <Text style={styles.avatarText}>JD</Text>
-        </View>
+
+        {/* Profile button */}
+        <Pressable onPress={() => router.push("/(app)/profile" as Href)} style={styles.avatar}>
+          <Text style={styles.avatarText}>👤</Text>
+        </Pressable>
       </View>
 
-      <Text style={styles.welcome}>welcome, students!</Text>
+      <Text style={styles.welcome}>{greeting}</Text>
       <Text style={styles.sub}>Have a great day on campus</Text>
 
       <View style={styles.tip}>
@@ -31,23 +63,48 @@ export default function Home() {
         </Text>
       </View>
 
+      {/* Base features (everyone) */}
       <View style={styles.grid}>
-        <Tile title="Places" onPress={() => router.push("/(app)/places")} />
-        <Tile title="Events" onPress={() => router.push("/(app)/events")} />
-        <Tile title="Study Groups" onPress={() => router.push("/(app)/study-groups")} />
-        <Tile title="Wellness Services" onPress={() => router.push("/(app)/wellness")} />
+        <Tile title="Places" onPress={() => router.push("/(app)/places" as Href)} />
+        <Tile title="Events" onPress={() => router.push("/(app)/events" as Href)} />
+        <Tile title="Study Groups" onPress={() => router.push("/(app)/study-groups" as Href)} />
+        <Tile title="Wellness Services" onPress={() => router.push("/(app)/wellness" as Href)} />
+
+        {/* Staff extras */}
+        {role === "staff" && (
+          <>
+            <Tile title="Manage Events" onPress={() => router.push("/(app)/staff-events" as Href)} />
+            <Tile title="Contact Requests" onPress={() => router.push("/(app)/contact-requests" as Href)} />
+          </>
+        )}
+
+        {/* Advisor extras */}
+        {role === "advisor" && (
+          <>
+            <Tile title="My Schedule" onPress={() => router.push("/(app)/advisor-schedule" as Href)} />
+            <Tile title="My Bookings" onPress={() => router.push("/(app)/advisor-bookings" as Href)} />
+          </>
+        )}
+
+        {/* Admin extras */}
+        {role === "admin" && (
+          <>
+            <Tile title="Role Requests" onPress={() => router.push("/(app)/admin-role-requests" as Href)} />
+            <Tile title="Admin Dashboard" onPress={() => router.push("/(app)/admin-dashboard" as Href)} />
+          </>
+        )}
       </View>
 
       <View style={styles.quickLinks}>
         <Text style={styles.quickTitle}>Quick Links</Text>
         <View style={styles.quickRow}>
-          <Pressable style={styles.quickBtn} onPress={() => router.push("/(app)/places")}>
+          <Pressable style={styles.quickBtn} onPress={() => router.push("/(app)/places" as Href)}>
             <Text style={styles.quickBtnText}>Maps</Text>
           </Pressable>
-          <Pressable style={styles.quickBtn} onPress={() => router.push("/(app)/events")}>
+          <Pressable style={styles.quickBtn} onPress={() => router.push("/(app)/events" as Href)}>
             <Text style={styles.quickBtnText}>Clubs</Text>
           </Pressable>
-          <Pressable style={styles.quickBtn} onPress={() => router.push("/(app)/wellness")}>
+          <Pressable style={styles.quickBtn} onPress={() => router.push("/(app)/wellness" as Href)}>
             <Text style={styles.quickBtnText}>Services</Text>
           </Pressable>
         </View>

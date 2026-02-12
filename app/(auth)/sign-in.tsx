@@ -1,9 +1,54 @@
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
-import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import React, { useState } from "react";
+import { Alert, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+
+import { reload, sendEmailVerification, signOut, signInWithEmailAndPassword } from "firebase/auth";
+import { auth } from "../../firebaseConfig";
+import { isGeorgeBrownEmail } from "../../src/auth/roles";
 
 export default function SignIn() {
   const router = useRouter();
+
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+
+  const onContinue = async () => {
+  const e = email.trim();
+
+  if (!isGeorgeBrownEmail(e)) {
+    Alert.alert("Invalid email", "Only <id>@georgebrown.ca emails can sign in.");
+    return;
+  }
+
+  if (!password) {
+    Alert.alert("Missing password", "Please enter your password.");
+    return;
+  }
+
+  try {
+    const cred = await signInWithEmailAndPassword(auth, e, password);
+
+    await reload(cred.user);
+
+    if (!cred.user.emailVerified) {
+      await sendEmailVerification(cred.user);
+      await signOut(auth);
+
+      Alert.alert(
+        "Email not verified",
+        "We sent you a verification email again. Verify it, then sign in."
+      );
+      return;
+    }
+
+    router.replace("/"); // gate routes by role
+  } catch (err: any) {
+    Alert.alert("Login failed", "Incorrect email or password.");
+  }
+
+  };
+
 
   return (
     <LinearGradient colors={["#F6F7FB", "#EEF0FF"]} style={styles.container}>
@@ -24,6 +69,8 @@ export default function SignIn() {
           autoCapitalize="none"
           keyboardType="email-address"
           style={styles.input}
+          value={email}
+          onChangeText={setEmail}
         />
 
         <Text style={styles.label}>Password</Text>
@@ -32,20 +79,20 @@ export default function SignIn() {
           placeholderTextColor="#9CA3AF"
           secureTextEntry
           style={styles.input}
+          value={password}
+          onChangeText={setPassword}
         />
 
-        <LinearGradient colors={["#2F80FF", "#8B2CFF"]} style={styles.ssoBtn}>
-          <Pressable onPress={() => {}} style={styles.ssoBtnPressable}>
-            <Text style={styles.ssoBtnText}>Sign in with SSO</Text>
-          </Pressable>
-        </LinearGradient>
-
-        <Pressable style={styles.continueBtn} onPress={() => router.replace("/(app)/home")}>
+        <Pressable style={styles.continueBtn} onPress={onContinue}>
           <Text style={styles.continueBtnText}>Continue</Text>
         </Pressable>
 
         <Pressable onPress={() => {}}>
           <Text style={styles.link}>Forgot password?</Text>
+        </Pressable>
+
+        <Pressable onPress={() => router.push("/(auth)/sign-up")}>
+          <Text style={styles.link}>Don't have an account? Create one</Text>
         </Pressable>
       </View>
 
@@ -102,10 +149,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 12,
   },
-
-  ssoBtn: { marginTop: 14, borderRadius: 12, overflow: "hidden" },
-  ssoBtnPressable: { paddingVertical: 12, alignItems: "center" },
-  ssoBtnText: { color: "#FFFFFF", fontWeight: "800" },
 
   continueBtn: {
     marginTop: 10,
