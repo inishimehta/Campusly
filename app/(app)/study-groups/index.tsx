@@ -1,67 +1,39 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { useMemo, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { useEffect, useMemo, useState } from "react";
+import { Modal, Pressable, ScrollView, Text, TextInput, View } from "react-native";
+import { addStudyGroup, listenStudyGroups, type StudyGroup } from "../../../lib/studyGroupsApi";
+import { styles } from "../../../styles/studyGroups.styles";
 
 type ChipKey = "All" | "By Course" | "Online" | "In-Person" | "Open Spots";
 
-type GroupItem = {
-  id: string;
-  title: string;
-  course: string;
-  desc: string;
-  location: string;
-  mode: "Online" | "In-Person";
-  time: string;
-  people: string;
-  tags: string[];
-};
-
-const GROUPS: GroupItem[] = [
-  {
-    id: "g1",
-    title: "COMP 3059 Final Prep",
-    course: "COMP 3059",
-    desc: "Last minute prep for the final exam. Covering all major topics.",
-    location: "Library, Room 301",
-    mode: "In-Person",
-    time: "Today, 3:00 PM",
-    people: "4/6",
-    tags: ["Computer Science", "Open Spots"],
-  },
-  {
-    id: "g2",
-    title: "Marketing 101 Study Session",
-    course: "MKTG 101",
-    desc: "Weekly review of lecture materials and assignment help.",
-    location: "Zoom",
-    mode: "Online",
-    time: "Tomorrow, 5:00 PM",
-    people: "5/8",
-    tags: ["Business", "Online"],
-  },
-  {
-    id: "g3",
-    title: "Calculus Homework Help",
-    course: "MATH 202",
-    desc: "Working through problem sets together.",
-    location: "Student Centre",
-    mode: "In-Person",
-    time: "Mon, 2:00 PM",
-    people: "3/5",
-    tags: ["Math", "In-Person"],
-  },
-];
-
 export default function StudyGroups() {
   const router = useRouter();
+
   const [q, setQ] = useState("");
   const [chip, setChip] = useState<ChipKey>("All");
+  const [groups, setGroups] = useState<StudyGroup[]>([]);
+
+  // Create modal state
+  const [createOpen, setCreateOpen] = useState(false);
+  const [title, setTitle] = useState("");
+  const [course, setCourse] = useState("");
+  const [desc, setDesc] = useState("");
+  const [location, setLocation] = useState("");
+  const [mode, setMode] = useState<"Online" | "In-Person">("Online");
+  const [time, setTime] = useState("");
+  const [peopleMax, setPeopleMax] = useState("6");
+  const [tagsText, setTagsText] = useState("Open Spots,Today");
+
+  useEffect(() => {
+    const unsub = listenStudyGroups(setGroups);
+    return () => unsub();
+  }, []);
 
   const filtered = useMemo(() => {
     const text = q.trim().toLowerCase();
 
-    return GROUPS.filter((g) => {
+    return groups.filter((g) => {
       const matchesText =
         !text ||
         g.title.toLowerCase().includes(text) ||
@@ -69,16 +41,29 @@ export default function StudyGroups() {
         g.location.toLowerCase().includes(text) ||
         g.tags.join(" ").toLowerCase().includes(text);
 
+      const openSpots = g.peopleNow < g.peopleMax;
+
       const matchesChip =
         chip === "All" ||
         chip === "By Course" ||
         (chip === "Online" && g.mode === "Online") ||
         (chip === "In-Person" && g.mode === "In-Person") ||
-        (chip === "Open Spots" && g.tags.includes("Open Spots"));
+        (chip === "Open Spots" && openSpots);
 
       return matchesText && (chip === "All" || matchesChip);
     });
-  }, [q, chip]);
+  }, [q, chip, groups]);
+
+  const resetCreateForm = () => {
+    setTitle("");
+    setCourse("");
+    setDesc("");
+    setLocation("");
+    setTime("");
+    setPeopleMax("6");
+    setTagsText("Open Spots,Today");
+    setMode("Online");
+  };
 
   return (
     <View style={styles.page}>
@@ -86,8 +71,12 @@ export default function StudyGroups() {
         <Pressable onPress={() => router.back()} style={styles.iconBtn}>
           <Ionicons name="arrow-back" size={22} color="#111827" />
         </Pressable>
+
         <Text style={styles.title}>Study Groups</Text>
-        <View style={styles.rightSpacer} />
+
+        <Pressable onPress={() => setCreateOpen(true)} style={styles.iconBtn}>
+          <Ionicons name="add" size={22} color="#111827" />
+        </Pressable>
       </View>
 
       <View style={styles.searchWrap}>
@@ -101,16 +90,23 @@ export default function StudyGroups() {
         />
       </View>
 
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipsRow}>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.chipsRow}
+        style={{ maxHeight: 46 }}
+      >
         {(["All", "By Course", "Online", "In-Person", "Open Spots"] as ChipKey[]).map((c) => {
           const active = c === chip;
           return (
             <Pressable
               key={c}
               onPress={() => setChip(c)}
-              style={[styles.chip, active && styles.chipActive]}
+              style={[styles.chip, active && styles.chipActive, { alignSelf: "flex-start" }]}
             >
-              <Text style={[styles.chipText, active && styles.chipTextActive]}>{c}</Text>
+              <Text style={[styles.chipText, active && styles.chipTextActive]} numberOfLines={1}>
+                {c}
+              </Text>
             </Pressable>
           );
         })}
@@ -118,7 +114,16 @@ export default function StudyGroups() {
 
       <ScrollView contentContainerStyle={styles.list}>
         {filtered.map((g) => (
-          <View key={g.id} style={styles.card}>
+          <Pressable
+            key={g.id}
+            style={styles.card}
+            onPress={() =>
+              router.push({
+                pathname: "/study-groups/[id]",
+                params: { id: g.id },
+              })
+            }
+          >
             <View style={styles.cardTopRow}>
               <View style={{ flex: 1 }}>
                 <Text style={styles.cardTitle}>{g.title}</Text>
@@ -127,7 +132,9 @@ export default function StudyGroups() {
 
               <View style={styles.people}>
                 <Ionicons name="people-outline" size={18} color="#6B7280" />
-                <Text style={styles.peopleText}>{g.people}</Text>
+                <Text style={styles.peopleText}>
+                  {g.peopleNow}/{g.peopleMax}
+                </Text>
               </View>
             </View>
 
@@ -154,72 +161,110 @@ export default function StudyGroups() {
               ))}
             </View>
 
-            <Pressable style={styles.primaryBtn} onPress={() => {}}>
-              <Text style={styles.primaryBtnText}>Join Group</Text>
-            </Pressable>
-          </View>
+            <View style={styles.primaryBtn}>
+              <Text style={styles.primaryBtnText}>View details</Text>
+            </View>
+          </Pressable>
         ))}
         <View style={{ height: 18 }} />
       </ScrollView>
+
+      {/* Create Group Modal */}
+      <Modal visible={createOpen} transparent animationType="slide" onRequestClose={() => setCreateOpen(false)}>
+        <Pressable
+          style={styles.modalBackdrop}
+          onPress={(e) => {
+            if (e.target === e.currentTarget) {
+              setCreateOpen(false);
+              resetCreateForm();
+            }
+          }}
+        >
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>Create study group</Text>
+
+            <TextInput value={title} onChangeText={setTitle} placeholder="Title" style={styles.modalInput} />
+            <TextInput
+              value={course}
+              onChangeText={setCourse}
+              placeholder="Course (e.g., COMP 3059)"
+              style={styles.modalInput}
+            />
+            <TextInput value={desc} onChangeText={setDesc} placeholder="Description" style={styles.modalInput} />
+            <TextInput
+              value={location}
+              onChangeText={setLocation}
+              placeholder="Location (Zoom / Library…)"
+              style={styles.modalInput}
+            />
+            <TextInput value={time} onChangeText={setTime} placeholder="Time (e.g., Today, 6:00 PM)" style={styles.modalInput} />
+            <TextInput
+              value={peopleMax}
+              onChangeText={setPeopleMax}
+              placeholder="Max people (e.g., 6)"
+              keyboardType="number-pad"
+              style={styles.modalInput}
+            />
+            <TextInput value={tagsText} onChangeText={setTagsText} placeholder="Tags (comma separated)" style={styles.modalInput} />
+
+            <View style={styles.modeRow}>
+              <Pressable
+                onPress={() => setMode("Online")}
+                style={[styles.modeBtn, mode === "Online" && styles.modeBtnActive]}
+              >
+                <Text style={[styles.modeText, mode === "Online" && styles.modeTextActive]}>Online</Text>
+              </Pressable>
+
+              <Pressable
+                onPress={() => setMode("In-Person")}
+                style={[styles.modeBtn, mode === "In-Person" && styles.modeBtnActive]}
+              >
+                <Text style={[styles.modeText, mode === "In-Person" && styles.modeTextActive]}>In-Person</Text>
+              </Pressable>
+            </View>
+
+            {/* CHANGED: removed peopleNow + navigate to the created group */}
+            <Pressable
+              style={styles.modalPrimary}
+              onPress={async () => {
+                const max = Math.max(1, Number(peopleMax) || 1);
+                const tags = tagsText
+                  .split(",")
+                  .map((t) => t.trim())
+                  .filter(Boolean);
+
+                const newId = await addStudyGroup({
+                  title: title.trim() || "New Study Group",
+                  course: course.trim() || "TBD 0000",
+                  desc: desc.trim() || "Created by students.",
+                  location: location.trim() || "TBD",
+                  mode,
+                  time: time.trim() || "TBD",
+                  peopleMax: max,
+                  tags: tags.length ? tags : ["Open Spots"],
+                });
+
+                setCreateOpen(false);
+                resetCreateForm();
+
+                router.push(`/study-groups/${newId}`);
+              }}
+            >
+              <Text style={styles.modalPrimaryText}>Create</Text>
+            </Pressable>
+
+            <Pressable
+              style={styles.modalCancel}
+              onPress={() => {
+                setCreateOpen(false);
+                resetCreateForm();
+              }}
+            >
+              <Text style={styles.modalCancelText}>Cancel</Text>
+            </Pressable>
+          </View>
+        </Pressable>
+      </Modal>
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  page: { flex: 1, backgroundColor: "#F6F7FB", paddingTop: 48 },
-
-  topBar: { flexDirection: "row", alignItems: "center", paddingHorizontal: 12, paddingBottom: 10 },
-  iconBtn: { width: 40, height: 40, alignItems: "center", justifyContent: "center" },
-  title: { fontSize: 18, fontWeight: "800", color: "#111827" },
-  rightSpacer: { flex: 1 },
-
-  searchWrap: {
-    marginHorizontal: 16,
-    marginBottom: 10,
-    backgroundColor: "#EFEFF2",
-    borderRadius: 14,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-  },
-  searchInput: { flex: 1, color: "#111827", fontWeight: "600" },
-
-  chipsRow: { paddingHorizontal: 16, gap: 10, paddingBottom: 10 },
-  chip: { paddingHorizontal: 14, paddingVertical: 10, borderRadius: 999, backgroundColor: "#FFFFFF" },
-  chipActive: { backgroundColor: "#2F80FF" },
-  chipText: { fontWeight: "800", color: "#111827" },
-  chipTextActive: { color: "#FFFFFF" },
-
-  list: { paddingHorizontal: 16, paddingTop: 6, gap: 14 },
-  card: { backgroundColor: "#FFFFFF", borderRadius: 18, padding: 14 },
-
-  cardTopRow: { flexDirection: "row", alignItems: "flex-start", gap: 10 },
-  cardTitle: { fontSize: 18, fontWeight: "900", color: "#111827" },
-  course: { marginTop: 4, color: "#2563EB", fontWeight: "800" },
-
-  people: { flexDirection: "row", alignItems: "center", gap: 6 },
-  peopleText: { color: "#111827", fontWeight: "800" },
-
-  desc: { marginTop: 10, color: "#374151", fontWeight: "500", lineHeight: 20 },
-
-  metaRow: { flexDirection: "row", alignItems: "center", gap: 8, marginTop: 10, flexWrap: "wrap" },
-  metaText: { color: "#374151", fontWeight: "600" },
-
-  pill: { backgroundColor: "#F3F4F6", paddingHorizontal: 10, paddingVertical: 6, borderRadius: 999 },
-  pillText: { color: "#111827", fontWeight: "800" },
-
-  tagsRow: { flexDirection: "row", gap: 8, marginTop: 10, flexWrap: "wrap" },
-  tag: { backgroundColor: "#F3F4F6", paddingHorizontal: 10, paddingVertical: 6, borderRadius: 999 },
-  tagText: { color: "#111827", fontWeight: "700" },
-
-  primaryBtn: {
-    marginTop: 12,
-    backgroundColor: "#0B0B16",
-    paddingVertical: 14,
-    borderRadius: 999,
-    alignItems: "center",
-  },
-  primaryBtnText: { color: "#FFFFFF", fontWeight: "900" },
-});
