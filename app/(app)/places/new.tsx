@@ -11,7 +11,7 @@ import {
   View,
 } from "react-native";
 import { addDoc, collection, serverTimestamp } from "firebase/firestore";
-import { db } from "../../../firebaseConfig";
+import { auth, db } from "../../../firebaseConfig";
 
 type CampusKey = "stjames" | "waterfront" | "casaloma";
 
@@ -29,11 +29,21 @@ export default function NewPlace() {
   const [phone, setPhone] = useState("");
   const [hours, setHours] = useState("");
 
-  const canSave = useMemo(() => name.trim().length >= 2 && desc.trim().length >= 10, [name, desc]);
+  const canSave = useMemo(
+    () => name.trim().length >= 2 && desc.trim().length >= 10,
+    [name, desc]
+  );
 
   async function onSave() {
     if (!canSave) {
       Alert.alert("Fill required fields", "Name and About are required.");
+      return;
+    }
+
+    const user = auth.currentUser;
+    if (!user) {
+      Alert.alert("Not signed in", "Please sign in to submit a request.");
+      router.replace("/(auth)/sign-in");
       return;
     }
 
@@ -46,9 +56,10 @@ export default function NewPlace() {
     const reviewsNum = Number(reviewsCount);
 
     try {
-      await addDoc(collection(db, "places"), {
+      // ✅ Submit a request instead of adding directly to places
+      await addDoc(collection(db, "placeRequests"), {
         name: name.trim(),
-        campus, // IMPORTANT: must be stjames / waterfront / casaloma
+        campus, // stjames / waterfront / casaloma
         rating: Number.isFinite(ratingNum) ? ratingNum : 0,
         reviewsCount: Number.isFinite(reviewsNum) ? reviewsNum : 0,
         tags: tagArr,
@@ -57,14 +68,26 @@ export default function NewPlace() {
         address: address.trim(),
         phone: phone.trim(),
         hours: hours.trim(),
+
+        // request metadata
+        status: "pending",
+        uid: user.uid,
+        email: user.email ?? "",
         createdAt: serverTimestamp(),
       });
 
-      Alert.alert("Saved", "Place added successfully!");
+      Alert.alert(
+        "Submitted",
+        "Your place request was submitted for admin approval."
+      );
       router.back();
     } catch (e: any) {
-      console.log("add place error", e);
-      Alert.alert("Error", e?.message || "Could not add place.");
+      console.log("submit place request error", e);
+      const msg =
+        e?.message?.includes("permission")
+          ? "Permission denied. Check Firestore rules for /placeRequests."
+          : e?.message || "Could not submit request.";
+      Alert.alert("Error", msg);
     }
   }
 
@@ -74,18 +97,23 @@ export default function NewPlace() {
         <Pressable onPress={() => router.back()} style={styles.iconBtn}>
           <Ionicons name="arrow-back" size={22} color="#111827" />
         </Pressable>
-        <Text style={styles.title}>Add Place</Text>
+        <Text style={styles.title}>Request a Place</Text>
         <Pressable
           onPress={onSave}
           disabled={!canSave}
           style={[styles.saveBtn, !canSave && { opacity: 0.5 }]}
         >
-          <Text style={styles.saveText}>Save</Text>
+          <Text style={styles.saveText}>Submit</Text>
         </Pressable>
       </View>
 
       <ScrollView contentContainerStyle={styles.scroll}>
-        <Field label="Name *" value={name} onChangeText={setName} placeholder="Main Library" />
+        <Field
+          label="Name *"
+          value={name}
+          onChangeText={setName}
+          placeholder="Main Library"
+        />
         <CampusPicker campus={campus} setCampus={setCampus} />
 
         <View style={styles.row}>
@@ -126,10 +154,30 @@ export default function NewPlace() {
           minHeight={110}
         />
 
-        <Field label="Image URL" value={imageUrl} onChangeText={setImageUrl} placeholder="https://..." />
-        <Field label="Address" value={address} onChangeText={setAddress} placeholder="230 King St E..." />
-        <Field label="Phone" value={phone} onChangeText={setPhone} placeholder="(416) 415-2000" />
-        <Field label="Hours" value={hours} onChangeText={setHours} placeholder="Mon-Fri: 9am-5pm" />
+        <Field
+          label="Image URL"
+          value={imageUrl}
+          onChangeText={setImageUrl}
+          placeholder="https://..."
+        />
+        <Field
+          label="Address"
+          value={address}
+          onChangeText={setAddress}
+          placeholder="230 King St E..."
+        />
+        <Field
+          label="Phone"
+          value={phone}
+          onChangeText={setPhone}
+          placeholder="(416) 415-2000"
+        />
+        <Field
+          label="Hours"
+          value={hours}
+          onChangeText={setHours}
+          placeholder="Mon-Fri: 9am-5pm"
+        />
 
         <View style={{ height: 30 }} />
       </ScrollView>
@@ -145,7 +193,10 @@ function Field(props: any) {
       <TextInput
         {...rest}
         placeholderTextColor="#9CA3AF"
-        style={[styles.input, minHeight ? { height: minHeight, textAlignVertical: "top" } : null]}
+        style={[
+          styles.input,
+          minHeight ? { height: minHeight, textAlignVertical: "top" } : null,
+        ]}
       />
     </View>
   );

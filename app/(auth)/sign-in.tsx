@@ -95,10 +95,6 @@ export default function SignIn() {
           <Text style={styles.link}>Don't have an account? Create one</Text>
         </Pressable>
       </View>
-
-      <Pressable onPress={() => {}}>
-        <Text style={styles.footer}>Staff login</Text>
-      </Pressable>
     </LinearGradient>
   );
 }

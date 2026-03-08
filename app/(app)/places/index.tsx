@@ -145,7 +145,7 @@ export default function PlacesIndex() {
   const [loading, setLoading] = useState(true);
   const [errMsg, setErrMsg] = useState<string>("");
 
- 
+
   useEffect(() => {
     setLoading(true);
     setErrMsg("");
@@ -218,12 +218,21 @@ export default function PlacesIndex() {
     <View style={styles.page}>
       {/* Header */}
       <View style={styles.topBar}>
-        <Pressable onPress={() => router.back()} style={styles.iconBtn}>
-          <Ionicons name="arrow-back" size={22} color="#111827" />
-        </Pressable>
-        <Text style={styles.title}>places</Text>
-        <View style={{ width: 40 }} />
-      </View>
+  <View style={styles.leftHeader}>
+    <Pressable onPress={() => router.back()} style={styles.iconBtn}>
+      <Ionicons name="arrow-back" size={22} color="#111827" />
+    </Pressable>
+
+    <Text style={styles.title}>places</Text>
+  </View>
+
+  <Pressable
+    onPress={() => router.push("/(app)/places/my-place-requests")}
+    style={styles.requestsBtn}
+  >
+    <Text style={styles.requestsText}>My place requests</Text>
+  </Pressable>
+</View>
 
       {/* Search */}
       <View style={styles.searchWrap}>
@@ -382,7 +391,13 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingHorizontal: 12,
     paddingBottom: 10,
+    justifyContent: "space-between"
   },
+  leftHeader: {
+  flexDirection: "row",
+  alignItems: "center",
+  gap: 8,
+},
   iconBtn: { width: 40, height: 40, alignItems: "center", justifyContent: "center" },
   title: { fontSize: 18, fontWeight: "800", color: "#111827" },
 
@@ -424,6 +439,15 @@ const styles = StyleSheet.create({
   dropdownText: { fontWeight: "800", color: "#111827" },
 
   scroll: { paddingHorizontal: 16, paddingTop: 14, gap: 14 },
+  requestsBtn: {
+  paddingHorizontal: 8,
+  paddingVertical: 6,
+},
+
+requestsText: {
+  fontWeight: "800",
+  color: "#2563EB",
+},
 
   loadingCard: {
     backgroundColor: "#FFFFFF",
