@@ -198,6 +198,10 @@ export default function Events() {
         </Pressable>
         <Text style={styles.title}>Events</Text>
         <View style={styles.rightSpacer} />
+
+        <Pressable onPress={() => router.push("/(app)/events/my-event-requests")}>
+          <Text>My Event Requests</Text>
+        </Pressable>
       </View>
 
       {/* ONE ScrollView */}

@@ -1,10 +1,17 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useState } from "react";
-import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import {
+  Alert,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
 import { addDoc, collection, serverTimestamp } from "firebase/firestore";
-import { db } from "../../../firebaseConfig";
-import { auth } from "../../../firebaseConfig";
+import { auth, db } from "../../../firebaseConfig";
 
 export default function RequestEvent() {
   const router = useRouter();
@@ -16,6 +23,13 @@ export default function RequestEvent() {
   const [description, setDescription] = useState("");
 
   const submit = async () => {
+    console.log("Submit button pressed");
+
+    if (!auth.currentUser?.uid) {
+      Alert.alert("Login required", "Please log in before submitting an event request.");
+      return;
+    }
+
     if (!title.trim() || !location.trim()) {
       Alert.alert("Missing info", "Please fill Title and Location.");
       return;
@@ -35,14 +49,15 @@ export default function RequestEvent() {
         description: description.trim(),
         status: "pending",
         createdAt: serverTimestamp(),
-        requestedBy: auth.currentUser?.uid || null,
+        requestedBy: auth.currentUser.uid,
+        requestedByEmail: auth.currentUser.email ?? null,
       });
 
       Alert.alert("Submitted", "Your event request has been submitted.");
       router.back();
-    } catch (e) {
-      console.log(e);
-      Alert.alert("Error", "Could not submit request.");
+    } catch (e: any) {
+      console.log("Submit error:", e);
+      Alert.alert("Error", e?.message || "Could not submit request.");
     }
   };
 
@@ -58,16 +73,36 @@ export default function RequestEvent() {
 
       <ScrollView contentContainerStyle={styles.form}>
         <Text style={styles.label}>Title *</Text>
-        <TextInput value={title} onChangeText={setTitle} style={styles.input} placeholder="Event title" />
+        <TextInput
+          value={title}
+          onChangeText={setTitle}
+          style={styles.input}
+          placeholder="Event title"
+        />
 
         <Text style={styles.label}>Location *</Text>
-        <TextInput value={location} onChangeText={setLocation} style={styles.input} placeholder="Where is it?" />
+        <TextInput
+          value={location}
+          onChangeText={setLocation}
+          style={styles.input}
+          placeholder="Where is it?"
+        />
 
         <Text style={styles.label}>Campus</Text>
-        <TextInput value={campus} onChangeText={setCampus} style={styles.input} placeholder="st_james / waterfront / casaloma" />
+        <TextInput
+          value={campus}
+          onChangeText={setCampus}
+          style={styles.input}
+          placeholder="st_james / waterfront / casaloma"
+        />
 
         <Text style={styles.label}>Tags (comma separated)</Text>
-        <TextInput value={tags} onChangeText={setTags} style={styles.input} placeholder="Clubs, Academic, Free" />
+        <TextInput
+          value={tags}
+          onChangeText={setTags}
+          style={styles.input}
+          placeholder="Clubs, Academic, Free"
+        />
 
         <Text style={styles.label}>Description</Text>
         <TextInput
@@ -83,7 +118,7 @@ export default function RequestEvent() {
         </Pressable>
 
         <Text style={styles.hint}>
-          Requests go to admins for approval (status: pending).
+          Requests go to admins for approval.
         </Text>
       </ScrollView>
     </View>
@@ -92,8 +127,18 @@ export default function RequestEvent() {
 
 const styles = StyleSheet.create({
   page: { flex: 1, backgroundColor: "#F6F7FB", paddingTop: 48 },
-  topBar: { flexDirection: "row", alignItems: "center", paddingHorizontal: 12, paddingBottom: 10 },
-  iconBtn: { width: 40, height: 40, alignItems: "center", justifyContent: "center" },
+  topBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 12,
+    paddingBottom: 10,
+  },
+  iconBtn: {
+    width: 40,
+    height: 40,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   title: { fontSize: 18, fontWeight: "900", color: "#111827" },
 
   form: { padding: 16, gap: 10 },
