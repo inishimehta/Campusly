@@ -6,8 +6,10 @@ import {
     ScrollView,
     StyleSheet,
     Text,
+    TextInput,
     View,
 } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 
 import { auth, db } from "../../../firebaseConfig";
@@ -29,65 +31,103 @@ type EventRequest = {
     description?: string;
     location?: string;
     campus?: string;
-    tags?: string[];
+    tags?: any;
     status?: EventRequestStatus;
     requestedBy?: string | null;
     createdAt?: any;
 };
 
-export default function MyEventRequestsScreen() {
+function normalizeTags(raw: any): string[] {
+    if (Array.isArray(raw)) return raw.map(String).filter(Boolean);
+    if (typeof raw === "string") {
+        return raw
+        .split(",")
+        .map((t) => t.trim())
+        .filter(Boolean);
+    }
+    return [];
+}
+
+const getStatusStyle = (status?: EventRequestStatus) => {
+    switch (status) {
+        case "approved":
+        return {
+            backgroundColor: "#E9F9EE",
+            borderColor: "#BBF7D0",
+            color: "#166534",
+            label: "Approved",
+        };
+        case "rejected":
+        return {
+            backgroundColor: "#FEE2E2",
+            borderColor: "#FECACA",
+            color: "#991B1B",
+            label: "Rejected",
+        };
+        default:
+        return {
+            backgroundColor: "#EEF2FF",
+            borderColor: "#C7D2FE",
+            color: "#1D4ED8",
+            label: "Pending",
+        };
+    }
+    };
+
+    export default function MyEventRequests() {
     const router = useRouter();
+
     const [items, setItems] = useState<EventRequest[]>([]);
     const [loading, setLoading] = useState(true);
-
-    const user = auth.currentUser;
+    const [qText, setQText] = useState("");
 
     useEffect(() => {
+        const user = auth.currentUser;
+
         if (!user?.uid) {
         setItems([]);
         setLoading(false);
         return;
         }
 
-        const q = query(
+        const qRef = query(
         collection(db, "event_requests"),
         where("requestedBy", "==", user.uid),
         orderBy("createdAt", "desc")
         );
 
         const unsub = onSnapshot(
-        q,
+        qRef,
         (snap) => {
             const list: EventRequest[] = snap.docs.map((d) => ({
             id: d.id,
-            ...(d.data() as Omit<EventRequest, "id">),
+            ...(d.data() as any),
             }));
             setItems(list);
             setLoading(false);
         },
-        (error) => {
-            console.log("Error loading event requests:", error);
+        (err) => {
+            console.log("my event requests error:", err);
+            setItems([]);
             setLoading(false);
         }
         );
 
         return () => unsub();
-    }, [user?.uid]);
+    }, []);
 
-    const pendingCount = useMemo(
-        () => items.filter((x) => x.status === "pending").length,
-        [items]
-    );
+    const filtered = useMemo(() => {
+        const t = qText.trim().toLowerCase();
+        if (!t) return items;
 
-    const approvedCount = useMemo(
-        () => items.filter((x) => x.status === "approved").length,
-        [items]
-    );
+        return items.filter((r) => {
+        const tags = normalizeTags(r.tags).join(" ");
+        const blob =
+            `${r.title ?? ""} ${r.location ?? ""} ${r.campus ?? ""} ${r.description ?? ""} ${tags}`.toLowerCase();
 
-    const rejectedCount = useMemo(
-        () => items.filter((x) => x.status === "rejected").length,
-        [items]
-    );
+        return blob.includes(t);
+        });
+    }, [items, qText]);
 
     const deleteRequest = (id: string) => {
         Alert.alert(
@@ -102,7 +142,7 @@ export default function MyEventRequestsScreen() {
                 try {
                 await deleteDoc(doc(db, "event_requests", id));
                 } catch (error) {
-                console.log(error);
+                console.log("delete event request error:", error);
                 Alert.alert("Error", "Could not delete the request.");
                 }
             },
@@ -111,270 +151,217 @@ export default function MyEventRequestsScreen() {
         );
     };
 
-    const getStatusStyle = (status?: EventRequestStatus) => {
-        switch (status) {
-        case "approved":
-            return { backgroundColor: "#DCFCE7", color: "#166534" };
-        case "rejected":
-            return { backgroundColor: "#FEE2E2", color: "#991B1B" };
-        default:
-            return { backgroundColor: "#FEF3C7", color: "#92400E" };
-        }
-    };
-
-    if (!user?.uid) {
-        return (
-        <View style={styles.center}>
-            <Text style={styles.emptyTitle}>Please log in first</Text>
-            <Text style={styles.emptyText}>
-            You need to be logged in to view your event requests.
-            </Text>
-        </View>
-        );
-    }
-
     return (
-        <ScrollView contentContainerStyle={styles.container}>
-        <Text style={styles.heading}>My Event Requests</Text>
-        <Text style={styles.subheading}>
-            Track the status of the event requests you submitted.
-        </Text>
-
-        <View style={styles.summaryRow}>
-            <View style={styles.summaryCard}>
-            <Text style={styles.summaryValue}>{items.length}</Text>
-            <Text style={styles.summaryLabel}>Total</Text>
-            </View>
-
-            <View style={styles.summaryCard}>
-            <Text style={styles.summaryValue}>{pendingCount}</Text>
-            <Text style={styles.summaryLabel}>Pending</Text>
-            </View>
-
-            <View style={styles.summaryCard}>
-            <Text style={styles.summaryValue}>{approvedCount}</Text>
-            <Text style={styles.summaryLabel}>Approved</Text>
-            </View>
-
-            <View style={styles.summaryCard}>
-            <Text style={styles.summaryValue}>{rejectedCount}</Text>
-            <Text style={styles.summaryLabel}>Rejected</Text>
-            </View>
+        <View style={styles.page}>
+        <View style={styles.topBar}>
+            <Pressable onPress={() => router.back()} style={styles.iconBtn}>
+            <Ionicons name="arrow-back" size={22} color="#111827" />
+            </Pressable>
+            <Text style={styles.title}>My Event Requests</Text>
+            <View style={{ width: 40 }} />
         </View>
 
-        <Pressable style={styles.backBtn} onPress={() => router.back()}>
-            <Text style={styles.backBtnText}>← Back</Text>
-        </Pressable>
+        <View style={styles.searchWrap}>
+            <Ionicons name="search" size={18} color="#9CA3AF" />
+            <TextInput
+            value={qText}
+            onChangeText={setQText}
+            placeholder="Search your requests…"
+            placeholderTextColor="#9CA3AF"
+            style={styles.searchInput}
+            />
+        </View>
 
-        {loading ? (
-            <View style={styles.center}>
-            <ActivityIndicator size="large" />
-            <Text style={styles.loadingText}>Loading your requests...</Text>
+        <ScrollView contentContainerStyle={styles.scroll}>
+            {loading ? (
+            <View style={styles.loadingRow}>
+                <ActivityIndicator />
+                <Text style={styles.muted}>Loading…</Text>
             </View>
-        ) : items.length === 0 ? (
-            <View style={styles.emptyBox}>
-            <Text style={styles.emptyTitle}>No event requests yet</Text>
-            <Text style={styles.emptyText}>
-                When you submit an event request, it will appear here.
-            </Text>
+            ) : filtered.length === 0 ? (
+            <View style={styles.emptyCard}>
+                <Text style={styles.emptyTitle}>No requests yet</Text>
+                <Text style={styles.emptyText}>
+                Submit one from Events using the + button.
+                </Text>
             </View>
-        ) : (
-            items.map((item) => {
-            const statusStyle = getStatusStyle(item.status);
+            ) : (
+            filtered.map((item) => {
+                const tags = normalizeTags(item.tags);
+                const statusStyle = getStatusStyle(item.status);
 
-            return (
+                return (
                 <View key={item.id} style={styles.card}>
-                <View style={styles.cardTop}>
+                    <View style={styles.cardTop}>
                     <Text style={styles.cardTitle}>
-                    {item.title || "Untitled Event"}
+                        {item.title || "Untitled Event"}
                     </Text>
 
                     <View
-                    style={[
-                        styles.statusBadge,
-                        { backgroundColor: statusStyle.backgroundColor },
-                    ]}
+                        style={[
+                        styles.statusPill,
+                        {
+                            backgroundColor: statusStyle.backgroundColor,
+                            borderColor: statusStyle.borderColor,
+                        },
+                        ]}
                     >
-                    <Text
+                        <Text
                         style={[styles.statusText, { color: statusStyle.color }]}
-                    >
-                        {(item.status || "pending").toUpperCase()}
-                    </Text>
+                        >
+                        {statusStyle.label}
+                        </Text>
                     </View>
-                </View>
+                    </View>
 
-                {!!item.description && (
-                    <Text style={styles.cardText}>{item.description}</Text>
-                )}
-
-                {!!item.location && (
-                    <Text style={styles.metaText}>Location: {item.location}</Text>
-                )}
-
-                {!!item.campus && (
-                    <Text style={styles.metaText}>Campus: {item.campus}</Text>
-                )}
-
-                {!!item.tags?.length && (
-                    <Text style={styles.metaText}>
-                    Tags: {item.tags.join(", ")}
+                    <Text style={styles.metaLine}>
+                    {item.location ? `📍 ${item.location}` : "📍 Location not provided"}
+                    {item.campus ? ` • ${item.campus}` : ""}
                     </Text>
-                )}
 
-                {item.status === "pending" && (
+                    {tags.length > 0 && (
+                    <Text style={styles.tagsLine} numberOfLines={2}>
+                        Tags: {tags.join(", ")}
+                    </Text>
+                    )}
+
+                    {!!item.description && (
+                    <Text style={styles.desc} numberOfLines={3}>
+                        {item.description}
+                    </Text>
+                    )}
+
+                    {item.status === "approved" && (
+                    <Text style={styles.hint}>
+                        Approved events appear in the main Events list.
+                    </Text>
+                    )}
+
+                    {item.status === "rejected" && (
+                    <Text style={styles.hint}>
+                        You can submit a new request with more details.
+                    </Text>
+                    )}
+
+                    {item.status === "pending" && (
                     <Pressable
-                    style={styles.deleteBtn}
-                    onPress={() => deleteRequest(item.id)}
+                        style={styles.deleteBtn}
+                        onPress={() => deleteRequest(item.id)}
                     >
-                    <Text style={styles.deleteBtnText}>Delete Request</Text>
+                        <Text style={styles.deleteBtnText}>Delete Request</Text>
                     </Pressable>
-                )}
+                    )}
                 </View>
-            );
+                );
             })
-        )}
+            )}
+
+            <View style={{ height: 24 }} />
         </ScrollView>
+        </View>
     );
 }
 
 const styles = StyleSheet.create({
-    container: {
-        padding: 16,
-        paddingBottom: 40,
-        backgroundColor: "#F8FAFC",
-        flexGrow: 1,
+    page: { flex: 1, backgroundColor: "#F6F7FB", paddingTop: 48 },
+
+    topBar: {
+        flexDirection: "row",
+        alignItems: "center",
+        paddingHorizontal: 12,
+        paddingBottom: 10,
     },
-    center: {
-        flex: 1,
+    iconBtn: {
+        width: 40,
+        height: 40,
         alignItems: "center",
         justifyContent: "center",
-        padding: 24,
     },
-    heading: {
-        fontSize: 26,
-        fontWeight: "700",
-        color: "#0F172A",
-        marginBottom: 6,
-    },
-    subheading: {
-        fontSize: 14,
-        color: "#475569",
-        marginBottom: 16,
-    },
-    summaryRow: {
-        flexDirection: "row",
-        flexWrap: "wrap",
-        gap: 10,
-        marginBottom: 16,
-    },
-    summaryCard: {
-        backgroundColor: "#FFFFFF",
-        borderRadius: 14,
-        paddingVertical: 14,
-        paddingHorizontal: 16,
-        minWidth: 78,
-        alignItems: "center",
-        borderWidth: 1,
-        borderColor: "#E2E8F0",
-    },
-    summaryValue: {
-        fontSize: 20,
-        fontWeight: "700",
-        color: "#0F172A",
-    },
-    summaryLabel: {
-        fontSize: 12,
-        color: "#64748B",
-        marginTop: 4,
-    },
-    backBtn: {
-        alignSelf: "flex-start",
-        backgroundColor: "#E2E8F0",
-        paddingHorizontal: 14,
-        paddingVertical: 10,
-        borderRadius: 10,
-        marginBottom: 16,
-    },
-    backBtnText: {
-        fontSize: 14,
-        fontWeight: "600",
-        color: "#0F172A",
-    },
-    loadingText: {
-        marginTop: 10,
-        color: "#475569",
-    },
-    emptyBox: {
-        marginTop: 24,
+    title: { fontSize: 18, fontWeight: "800", color: "#111827" },
+
+    searchWrap: {
+        marginHorizontal: 16,
         backgroundColor: "#FFFFFF",
         borderRadius: 16,
-        padding: 20,
-        borderWidth: 1,
-        borderColor: "#E2E8F0",
+        paddingHorizontal: 12,
+        paddingVertical: 10,
+        flexDirection: "row",
         alignItems: "center",
+        gap: 8,
+        borderWidth: 1,
+        borderColor: "#E5E7EB",
     },
-    emptyTitle: {
-        fontSize: 18,
-        fontWeight: "700",
-        color: "#0F172A",
-        marginBottom: 6,
+    searchInput: { flex: 1, color: "#111827", fontWeight: "600" },
+
+    scroll: { paddingHorizontal: 16, paddingTop: 14, gap: 12 },
+
+    loadingRow: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 10,
+        paddingVertical: 10,
     },
+    muted: { color: "#6B7280", fontWeight: "700" },
+
+    emptyCard: {
+        backgroundColor: "#FFFFFF",
+        borderRadius: 18,
+        padding: 16,
+        borderWidth: 1,
+        borderColor: "#E5E7EB",
+    },
+    emptyTitle: { fontWeight: "900", color: "#111827", fontSize: 16 },
     emptyText: {
-        fontSize: 14,
-        color: "#64748B",
-        textAlign: "center",
+        marginTop: 6,
+        fontWeight: "700",
+        color: "#6B7280",
+        lineHeight: 18,
     },
+
     card: {
         backgroundColor: "#FFFFFF",
-        borderRadius: 16,
-        padding: 16,
-        marginBottom: 14,
+        borderRadius: 18,
+        padding: 14,
         borderWidth: 1,
-        borderColor: "#E2E8F0",
+        borderColor: "#E5E7EB",
+        gap: 8,
     },
     cardTop: {
         flexDirection: "row",
+        alignItems: "center",
         justifyContent: "space-between",
-        alignItems: "flex-start",
         gap: 10,
-        marginBottom: 10,
     },
     cardTitle: {
+        fontWeight: "900",
+        color: "#111827",
+        fontSize: 16,
         flex: 1,
-        fontSize: 18,
-        fontWeight: "700",
-        color: "#0F172A",
     },
-    statusBadge: {
+
+    statusPill: {
         paddingHorizontal: 10,
         paddingVertical: 6,
         borderRadius: 999,
+        borderWidth: 1,
     },
-    statusText: {
-        fontSize: 11,
-        fontWeight: "700",
-    },
-    cardText: {
-        fontSize: 14,
-        color: "#334155",
-        marginBottom: 10,
-        lineHeight: 20,
-    },
-    metaText: {
-        fontSize: 13,
-        color: "#64748B",
-        marginBottom: 4,
-    },
+    statusText: { fontWeight: "900", fontSize: 12 },
+
+    metaLine: { color: "#374151", fontWeight: "800" },
+    tagsLine: { color: "#6B7280", fontWeight: "700" },
+    desc: { color: "#111827", fontWeight: "700", lineHeight: 18 },
+    hint: { color: "#6B7280", fontWeight: "700" },
+
     deleteBtn: {
-        marginTop: 14,
+        marginTop: 6,
         backgroundColor: "#DC2626",
         paddingVertical: 10,
-        borderRadius: 10,
+        borderRadius: 12,
         alignItems: "center",
     },
     deleteBtnText: {
         color: "#FFFFFF",
         fontSize: 14,
-        fontWeight: "700",
+        fontWeight: "800",
     },
 });

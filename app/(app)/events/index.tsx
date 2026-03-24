@@ -200,7 +200,7 @@ export default function Events() {
         <View style={styles.rightSpacer} />
 
         <Pressable onPress={() => router.push("/(app)/events/my-event-requests")}>
-          <Text>My Event Requests</Text>
+          <Text style={styles.requestsText}>My Event Requests</Text>
         </Pressable>
       </View>
 
@@ -380,6 +380,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
+
+  requestsText: {
+  fontWeight: "800",
+  color: "#2563EB",
+},
 
   selectedRow: { paddingHorizontal: 16, paddingBottom: 6 },
   selectedChip: {
