@@ -1,10 +1,25 @@
 import React, { useMemo, useRef, useState } from "react";
-import { View, Text, StyleSheet, Pressable, ScrollView, Image, Modal } from "react-native";
+import {
+  View,
+  Text,
+  StyleSheet,
+  Pressable,
+  ScrollView,
+  Image,
+  Modal,
+  Linking,
+  Alert,
+} from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { CalendarList, type DateData } from "react-native-calendars";
 import { Ionicons } from "@expo/vector-icons";
-
-type Slot = { time: string; available: boolean };
+import {
+  addAdvisorBooking,
+  getAdvisorSchedule,
+  saveAdvisorSchedule,
+  type AdvisorScheduleRecord,
+  type Slot,
+} from "../advisor-bookings";
 
 function todayISO() {
   const d = new Date();
@@ -14,104 +29,60 @@ function todayISO() {
   return `${yyyy}-${mm}-${dd}`;
 }
 
-// Dummy schedules per advisor
-const DUMMY_SCHEDULES: Record<
-  string,
-  {
-    location: string;
-    slotsByDate: Record<string, Slot[]>;
-  }
-> = {
-  a1: {
-    location: "Wellness Centre • Casa Loma",
-    slotsByDate: {
-      "2026-02-13": [
-        { time: "9:00am", available: true },
-        { time: "10:00am", available: true },
-        { time: "11:00am", available: false },
-        { time: "1:00pm", available: true },
-        { time: "3:00pm", available: true },
-      ],
-      "2026-02-14": [
-        { time: "10:00am", available: true },
-        { time: "11:30am", available: true },
-        { time: "2:00pm", available: false },
-        { time: "4:00pm", available: true },
-      ],
-      "2026-02-17": [
-        { time: "9:30am", available: true },
-        { time: "12:00pm", available: true },
-        { time: "2:30pm", available: true },
-      ],
-    },
-  },
-  a2: {
-    location: "Student Services • Waterfront",
-    slotsByDate: {
-      "2026-02-13": [
-        { time: "11:00am", available: true },
-        { time: "12:30pm", available: true },
-        { time: "4:00pm", available: true },
-      ],
-      "2026-02-18": [
-        { time: "10:00am", available: true },
-        { time: "1:00pm", available: false },
-        { time: "3:30pm", available: true },
-      ],
-    },
-  },
-  a3: {
-    location: "Wellness Centre • St. James",
-    slotsByDate: {
-      "2026-02-16": [
-        { time: "10:00am", available: true },
-        { time: "11:00am", available: true },
-        { time: "12:00pm", available: true },
-        { time: "2:00pm", available: false },
-      ],
-      "2026-02-20": [
-        { time: "9:00am", available: true },
-        { time: "1:00pm", available: true },
-        { time: "3:00pm", available: true },
-      ],
-    },
-  },
-};
-
 export default function BookAppointment() {
   const router = useRouter();
   const calRef = useRef<any>(null);
 
   const params = useLocalSearchParams();
-  const advisorId = typeof params.advisorId === "string" ? params.advisorId : undefined;
-  const advisorName = typeof params.advisorName === "string" ? params.advisorName : undefined;
-  const avatarUrl = typeof params.avatarUrl === "string" ? params.avatarUrl : undefined;
+  const advisorId = typeof params.advisorId === "string" ? params.advisorId : "a1";
+  const advisorName =
+    typeof params.advisorName === "string" ? params.advisorName : "Advisor";
+  const avatarUrl =
+    typeof params.avatarUrl === "string" ? params.avatarUrl : undefined;
 
-  const initialSchedule =
-    advisorId && DUMMY_SCHEDULES[advisorId]
-      ? DUMMY_SCHEDULES[advisorId]
-      : { location: "Wellness Centre", slotsByDate: {} as Record<string, Slot[]> };
+  const studentEmail =
+    typeof params.studentEmail === "string" && params.studentEmail.trim()
+      ? params.studentEmail
+      : "student@gblearn.com";
 
-  const [schedule, setSchedule] = useState(initialSchedule);
+  const initialSchedule: AdvisorScheduleRecord =
+    getAdvisorSchedule(advisorId) ?? {
+      advisorId,
+      advisorName,
+      location: "Wellness Centre",
+      slotsByDate: {},
+    };
+
+  const [schedule, setSchedule] = useState<AdvisorScheduleRecord>(initialSchedule);
 
   const today = todayISO();
-  const availableDates = useMemo(() => Object.keys(schedule.slotsByDate), [schedule.slotsByDate]);
-
-  // pick first available date if exists, otherwise today
+  const availableDates = useMemo(
+    () => Object.keys(schedule.slotsByDate),
+    [schedule.slotsByDate]
+  );
   const firstAvailable = availableDates[0] ?? today;
 
   const [selectedDate, setSelectedDate] = useState<string>(firstAvailable);
-  const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
+  const [selectedSlot, setSelectedSlot] = useState<Slot | null>(null);
 
   const [showConfirm, setShowConfirm] = useState(false);
-  const [bookedInfo, setBookedInfo] = useState<{ date: string; time: string } | null>(null);
+  const [bookedInfo, setBookedInfo] = useState<{
+    date: string;
+    time: string;
+    mode: string;
+    detail: string;
+  } | null>(null);
 
   const markedDates = useMemo(() => {
     const marks: Record<string, any> = {};
 
     for (const date of availableDates) {
-      const hasAvailable = (schedule.slotsByDate[date] ?? []).some((s: Slot) => s.available);
-      if (hasAvailable) marks[date] = { marked: true, dotColor: "#10B981" };
+      const hasAvailable = (schedule.slotsByDate[date] ?? []).some(
+        (s: Slot) => s.available
+      );
+      if (hasAvailable) {
+        marks[date] = { marked: true, dotColor: "#10B981" };
+      }
     }
 
     marks[selectedDate] = {
@@ -135,9 +106,38 @@ export default function BookAppointment() {
 
   const canContinue = Boolean(selectedSlot);
 
+  const openConfirmationEmail = async (
+    date: string,
+    time: string,
+    mode: string,
+    detail: string
+  ) => {
+    const subject = encodeURIComponent("Wellness Appointment Confirmation");
+    const body = encodeURIComponent(
+      `Your appointment has been booked.\n\nAdvisor: ${advisorName}\nDate: ${date}\nTime: ${time}\nSession Type: ${mode}\n${
+        mode === "Online" ? "Meeting Link" : "Address"
+      }: ${detail}\nLocation: ${schedule.location}`
+    );
+
+    const url = `mailto:${studentEmail}?subject=${subject}&body=${body}`;
+
+    try {
+      const supported = await Linking.canOpenURL(url);
+      if (supported) {
+        await Linking.openURL(url);
+      } else {
+        Alert.alert(
+          "Email app not available",
+          "Could not open an email app on this device."
+        );
+      }
+    } catch {
+      Alert.alert("Email draft could not be opened.");
+    }
+  };
+
   return (
     <View style={styles.page}>
-      {/* Top bar */}
       <View style={styles.topBar}>
         <Pressable onPress={() => router.back()} style={styles.iconBtn}>
           <Ionicons name="arrow-back" size={22} color="#111827" />
@@ -147,7 +147,6 @@ export default function BookAppointment() {
       </View>
 
       <ScrollView contentContainerStyle={styles.scroll}>
-        {/* Advisor card */}
         <View style={styles.headerCard}>
           {avatarUrl ? (
             <Image source={{ uri: avatarUrl }} style={styles.avatarImg} />
@@ -156,12 +155,11 @@ export default function BookAppointment() {
           )}
 
           <View style={{ flex: 1 }}>
-            <Text style={styles.clinicTitle}>{advisorName ?? "Advisor"}</Text>
+            <Text style={styles.clinicTitle}>{advisorName}</Text>
             <Text style={styles.clinicSub}>{schedule.location}</Text>
           </View>
         </View>
 
-        {/* Calendar card */}
         <View style={styles.calendarCard}>
           <View style={styles.calendarTopRow}>
             <Text style={styles.sectionTitle}>Choose a date</Text>
@@ -204,39 +202,57 @@ export default function BookAppointment() {
           />
         </View>
 
-        {/* Slots */}
         <View style={styles.slotsCard}>
           <Text style={styles.sectionTitle}>Available times</Text>
 
           {slotsForDay.length === 0 ? (
             <Text style={styles.muted}>No slots for this day.</Text>
           ) : (
-            <View style={styles.slotsWrap}>
+            <View style={styles.slotsColumn}>
               {slotsForDay.map((s: Slot) => {
-                const active = selectedSlot === s.time;
+                const active = selectedSlot?.time === s.time;
                 const disabled = !s.available;
 
                 return (
                   <Pressable
-                    key={s.time}
+                    key={`${selectedDate}-${s.time}`}
                     disabled={disabled}
-                    onPress={() => setSelectedSlot(s.time)}
+                    onPress={() => setSelectedSlot(s)}
                     style={[
-                      styles.slot,
-                      s.available ? styles.slotAvailable : styles.slotUnavailable,
-                      active && styles.slotActive,
+                      styles.slotCard,
                       disabled && styles.slotDisabled,
+                      active && styles.slotCardActive,
                     ]}
                   >
-                    <Text
+                    <View style={{ flex: 1 }}>
+                      <Text style={[styles.slotTime, active && styles.slotTimeActive]}>
+                        {s.time}
+                      </Text>
+                      <Text style={[styles.slotMeta, active && styles.slotMetaActive]}>
+                        {s.mode}
+                      </Text>
+                      <Text style={[styles.slotDetail, active && styles.slotMetaActive]}>
+                        {s.detail}
+                      </Text>
+                    </View>
+
+                    <View
                       style={[
-                        styles.slotText,
-                        s.available ? styles.slotTextAvailable : styles.slotTextUnavailable,
-                        active && styles.slotTextActive,
+                        styles.badge,
+                        s.mode === "Online" ? styles.onlineBadge : styles.inPersonBadge,
                       ]}
                     >
-                      {s.time}
-                    </Text>
+                      <Text
+                        style={[
+                          styles.badgeText,
+                          s.mode === "Online"
+                            ? styles.onlineBadgeText
+                            : styles.inPersonBadgeText,
+                        ]}
+                      >
+                        {s.mode}
+                      </Text>
+                    </View>
                   </Pressable>
                 );
               })}
@@ -244,52 +260,75 @@ export default function BookAppointment() {
           )}
         </View>
 
-        {/* Next button */}
         <Pressable
           disabled={!canContinue}
           style={[styles.nextBtn, !canContinue && styles.nextBtnDisabled]}
-          onPress={() => {
+          onPress={async () => {
             if (!selectedSlot) return;
 
             const bookedDate = selectedDate;
-            const bookedTime = selectedSlot;
+            const bookedSlot = selectedSlot;
 
-            // remove selected slot from that day
-            setSchedule((prev) => {
-              const daySlots = prev.slotsByDate[bookedDate] ?? [];
-              const updatedDaySlots = daySlots.filter((s) => s.time !== bookedTime);
+            const updatedSchedule: AdvisorScheduleRecord = {
+              ...schedule,
+              slotsByDate: {
+                ...schedule.slotsByDate,
+                [bookedDate]: (schedule.slotsByDate[bookedDate] ?? []).filter(
+                  (s) => s.time !== bookedSlot.time
+                ),
+              },
+            };
 
-              return {
-                ...prev,
-                slotsByDate: {
-                  ...prev.slotsByDate,
-                  [bookedDate]: updatedDaySlots,
-                },
-              };
+            setSchedule(updatedSchedule);
+            saveAdvisorSchedule(updatedSchedule);
+
+            addAdvisorBooking({
+              advisorId,
+              advisorName,
+              date: bookedDate,
+              time: bookedSlot.time,
+              location: schedule.location,
+              mode: bookedSlot.mode,
+              detail: bookedSlot.detail,
+              studentEmail,
+              status: "Booked",
             });
 
+            await openConfirmationEmail(
+              bookedDate,
+              bookedSlot.time,
+              bookedSlot.mode,
+              bookedSlot.detail
+            );
+
             setSelectedSlot(null);
-            setBookedInfo({ date: bookedDate, time: bookedTime });
+            setBookedInfo({
+              date: bookedDate,
+              time: bookedSlot.time,
+              mode: bookedSlot.mode,
+              detail: bookedSlot.detail,
+            });
             setShowConfirm(true);
           }}
         >
-          <Text style={styles.nextBtnText}>{canContinue ? "Next" : "Select a time to continue"}</Text>
+          <Text style={styles.nextBtnText}>
+            {canContinue ? "Confirm Booking" : "Select a time to continue"}
+          </Text>
         </Pressable>
 
         <View style={{ height: 24 }} />
       </ScrollView>
 
-      {/* Confirmation Modal */}
       <Modal visible={showConfirm} transparent animationType="fade">
         <View style={styles.modalBackdrop}>
           <View style={styles.modalCard}>
             <Text style={styles.modalTitle}>Appointment booked ✅</Text>
-
-            <Text style={styles.modalText}>{advisorName ?? "Advisor"}</Text>
-
+            <Text style={styles.modalText}>{advisorName}</Text>
             <Text style={styles.modalText}>
               {bookedInfo ? `${bookedInfo.date} at ${bookedInfo.time}` : ""}
             </Text>
+            <Text style={styles.modalText}>{bookedInfo?.mode}</Text>
+            <Text style={styles.modalText}>{bookedInfo?.detail}</Text>
 
             <Pressable
               style={styles.modalBtn}
@@ -320,7 +359,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingBottom: 10,
   },
-  iconBtn: { width: 40, height: 40, alignItems: "center", justifyContent: "center" },
+  iconBtn: {
+    width: 40,
+    height: 40,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   title: { fontSize: 18, fontWeight: "900", color: "#111827" },
   rightSpacer: { flex: 1 },
 
@@ -339,38 +383,100 @@ const styles = StyleSheet.create({
   clinicTitle: { fontSize: 16, fontWeight: "900", color: "#111827" },
   clinicSub: { marginTop: 2, color: "#6B7280", fontWeight: "700" },
 
-  calendarCard: { backgroundColor: "#FFFFFF", borderRadius: 18, padding: 14, gap: 10 },
-  calendarTopRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  calendarCard: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 18,
+    padding: 14,
+    gap: 10,
+  },
+  calendarTopRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
   sectionTitle: { fontSize: 16, fontWeight: "900", color: "#111827" },
-  todayBtn: { paddingVertical: 6, paddingHorizontal: 10, borderRadius: 999, backgroundColor: "#F3F4F6" },
+  todayBtn: {
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 999,
+    backgroundColor: "#F3F4F6",
+  },
   todayBtnText: { fontWeight: "900", color: "#111827", fontSize: 12 },
 
   calendar: { borderRadius: 12 },
 
-  slotsCard: { backgroundColor: "#FFFFFF", borderRadius: 18, padding: 14, gap: 10 },
+  slotsCard: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 18,
+    padding: 14,
+    gap: 10,
+  },
   muted: { color: "#6B7280", fontWeight: "700" },
 
-  slotsWrap: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
+  slotsColumn: { gap: 10 },
 
-  slot: {
-    paddingVertical: 10,
-    paddingHorizontal: 14,
-    borderRadius: 10,
+  slotCard: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    backgroundColor: "#F9FAFB",
+    borderRadius: 14,
+    padding: 14,
     borderWidth: 1,
+    borderColor: "#E5E7EB",
+  },
+  slotCardActive: {
+    backgroundColor: "#0B0B16",
+    borderColor: "#0B0B16",
+  },
+  slotDisabled: {
+    opacity: 0.5,
+  },
+  slotTime: {
+    fontSize: 17,
+    fontWeight: "900",
+    color: "#111827",
+  },
+  slotTimeActive: {
+    color: "#FFFFFF",
+  },
+  slotMeta: {
+    marginTop: 6,
+    fontSize: 13,
+    fontWeight: "800",
+    color: "#374151",
+  },
+  slotMetaActive: {
+    color: "#E5E7EB",
+  },
+  slotDetail: {
+    marginTop: 4,
+    fontSize: 12,
+    color: "#6B7280",
+    lineHeight: 18,
   },
 
-  slotText: { fontWeight: "900" },
-
-  slotAvailable: { backgroundColor: "#D1FAE5", borderColor: "#10B981" },
-  slotTextAvailable: { color: "#065F46" },
-
-  slotUnavailable: { backgroundColor: "#F3F4F6", borderColor: "#E5E7EB" },
-  slotTextUnavailable: { color: "#9CA3AF" },
-
-  slotDisabled: { opacity: 0.7 },
-
-  slotActive: { backgroundColor: "#0B0B16", borderColor: "#0B0B16" },
-  slotTextActive: { color: "#FFFFFF" },
+  badge: {
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 999,
+  },
+  onlineBadge: {
+    backgroundColor: "#DBEAFE",
+  },
+  onlineBadgeText: {
+    color: "#1D4ED8",
+  },
+  inPersonBadge: {
+    backgroundColor: "#DCFCE7",
+  },
+  inPersonBadgeText: {
+    color: "#166534",
+  },
+  badgeText: {
+    fontWeight: "900",
+    fontSize: 12,
+  },
 
   nextBtn: {
     marginTop: 6,
@@ -382,7 +488,6 @@ const styles = StyleSheet.create({
   nextBtnDisabled: { opacity: 0.45 },
   nextBtnText: { color: "#FFFFFF", fontWeight: "900" },
 
-  // Modal styles
   modalBackdrop: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.35)",
