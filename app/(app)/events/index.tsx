@@ -234,9 +234,13 @@ export default function Events() {
         <Text style={styles.title}>Events</Text>
         <View style={styles.rightSpacer} />
 
-        <Pressable onPress={() => router.push("/(app)/events/my-event-requests")}>
-          <Text style={styles.requestsText}>My Event Requests</Text>
-        </Pressable>
+        {userRole !== "student" ? (
+          <Pressable onPress={() => router.push("/(app)/events/my-event-requests")}>
+            <Text style={styles.requestsText}>My Event Requests</Text>
+          </Pressable>
+        ) : (
+          <View style={{ width: 40 }} />
+        )}
       </View>
 
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
@@ -323,8 +327,8 @@ export default function Events() {
 
               {tagsArr.length > 0 && (
                 <View style={styles.tagsRow}>
-                  {tagsArr.map((t) => (
-                    <View key={t} style={styles.tag}>
+                  {tagsArr.map((t, idx) => (
+                    <View key={`${e.id}-${t}-${idx}`} style={styles.tag}>
                       <Text style={styles.tagText}>{t}</Text>
                     </View>
                   ))}
