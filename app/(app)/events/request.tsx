@@ -2,6 +2,11 @@ import { Ionicons } from "@expo/vector-icons";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { Picker } from "@react-native-picker/picker";
 import { useRouter } from "expo-router";
+import {
+  addDoc,
+  collection,
+  serverTimestamp, Timestamp
+} from "firebase/firestore";
 import { useMemo, useState } from "react";
 import {
   Alert,
@@ -12,14 +17,8 @@ import {
   Switch,
   Text,
   TextInput,
-  View,
+  View
 } from "react-native";
-import {
-  Timestamp,
-  addDoc,
-  collection,
-  serverTimestamp,
-} from "firebase/firestore";
 import { auth, db } from "../../../firebaseConfig";
 
 const CAMPUS_OPTIONS = [

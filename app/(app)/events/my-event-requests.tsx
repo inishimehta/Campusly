@@ -1,3 +1,5 @@
+import { Ionicons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
 import React, { useEffect, useMemo, useState } from "react";
 import {
     ActivityIndicator,
@@ -7,12 +9,9 @@ import {
     StyleSheet,
     Text,
     TextInput,
-    View,
+    View
 } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
 
-import { auth, db } from "../../../firebaseConfig";
 import {
     collection,
     deleteDoc,
@@ -20,8 +19,9 @@ import {
     onSnapshot,
     orderBy,
     query,
-    where,
+    where
 } from "firebase/firestore";
+import { auth, db } from "../../../firebaseConfig";
 
 type EventRequestStatus = "pending" | "approved" | "rejected";
 
@@ -182,7 +182,7 @@ const getStatusStyle = (status?: EventRequestStatus) => {
             <View style={styles.emptyCard}>
                 <Text style={styles.emptyTitle}>No requests yet</Text>
                 <Text style={styles.emptyText}>
-                Submit one from Events using the + button.
+                Your submitted event requests will appear here.                
                 </Text>
             </View>
             ) : (

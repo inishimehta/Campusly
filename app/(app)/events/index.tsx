@@ -1,5 +1,14 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Href, useRouter } from "expo-router";
+import {
+  collection,
+  doc,
+  getDoc,
+  onSnapshot,
+  orderBy,
+  query,
+  Timestamp
+} from "firebase/firestore";
 import { useEffect, useMemo, useState } from "react";
 import {
   Image,
@@ -9,10 +18,9 @@ import {
   StyleSheet,
   Text,
   TextInput,
-  View,
+  View
 } from "react-native";
-import { collection, onSnapshot, orderBy, query, Timestamp } from "firebase/firestore";
-import { db } from "../../../firebaseConfig";
+import { auth, db } from "../../../firebaseConfig";
 
 type ChipKey = "All" | "Today" | "This Week" | "Free Events";
 type CampusKey = "all" | "st_james" | "waterfront" | "casaloma";
@@ -24,8 +32,7 @@ type EventItem = {
   endDate?: Timestamp;
   location?: string;
   attending?: number;
-
-  tags?: any; // can be array or weird string formats
+  tags?: any;
   campus?: CampusKey | string;
   isFree?: boolean;
   imageUrl?: string;
@@ -39,7 +46,11 @@ const CAMPUS_LABEL: Record<CampusKey, string> = {
 };
 
 function isSameDay(a: Date, b: Date) {
-  return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+  return (
+    a.getFullYear() === b.getFullYear() &&
+    a.getMonth() === b.getMonth() &&
+    a.getDate() === b.getDate()
+  );
 }
 
 function withinNext7Days(d: Date) {
@@ -53,34 +64,31 @@ function withinNext7Days(d: Date) {
 function fmtDate(ts?: Timestamp) {
   if (!ts) return "";
   const d = ts.toDate();
-  return d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+  return d.toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
 }
 
 function fmtTimeRange(start?: Timestamp, end?: Timestamp) {
   if (!start) return "";
-  const s = start.toDate().toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+  const s = start
+    .toDate()
+    .toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
   if (!end) return s;
-  const e = end.toDate().toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+  const e = end
+    .toDate()
+    .toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
   return `${s} - ${e}`;
 }
 
-/**
- * ✅ Handles your Firestore case:
- * tags: (array) [ "['Clubs','Info','Free']" ]
- * plus:
- * - real arrays ["Clubs","Free"]
- * - JSON strings '["Clubs","Free"]'
- * - single-quote strings "['Clubs','Free']"
- * - comma strings "Clubs, Free"
- */
 function normalizeTags(raw: any): string[] {
-  // array may be normal OR ["['a','b']"]
   if (Array.isArray(raw)) {
     const out: string[] = [];
     for (const item of raw) {
       if (typeof item === "string") {
         const parsed = normalizeTags(item);
-        // if parsed produced multiple tags, flatten them
         if (parsed.length > 1) out.push(...parsed);
         else out.push(item);
       } else if (item != null) {
@@ -93,20 +101,19 @@ function normalizeTags(raw: any): string[] {
   if (typeof raw === "string") {
     let s = raw.trim();
 
-    // unwrap quotes
-    if ((s.startsWith('"') && s.endsWith('"')) || (s.startsWith("'") && s.endsWith("'"))) {
+    if (
+      (s.startsWith('"') && s.endsWith('"')) ||
+      (s.startsWith("'") && s.endsWith("'"))
+    ) {
       s = s.slice(1, -1).trim();
     }
 
-    // array-like string
     if (s.startsWith("[") && s.endsWith("]")) {
-      // try JSON
       try {
         const parsed = JSON.parse(s);
         if (Array.isArray(parsed)) return parsed.map(String).filter(Boolean);
       } catch {}
 
-      // fallback split for ['a','b']
       const inner = s.slice(1, -1);
       return inner
         .split(",")
@@ -119,8 +126,12 @@ function normalizeTags(raw: any): string[] {
         .filter(Boolean);
     }
 
-    // comma string
-    if (s.includes(",")) return s.split(",").map((x) => x.trim()).filter(Boolean);
+    if (s.includes(",")) {
+      return s
+        .split(",")
+        .map((x) => x.trim())
+        .filter(Boolean);
+    }
 
     return s ? [s] : [];
   }
@@ -135,8 +146,32 @@ export default function Events() {
   const [chip, setChip] = useState<ChipKey>("All");
   const [campus, setCampus] = useState<CampusKey>("all");
   const [campusModal, setCampusModal] = useState(false);
-
   const [events, setEvents] = useState<EventItem[]>([]);
+  const [userRole, setUserRole] = useState<string>("student");
+
+  useEffect(() => {
+    const loadRole = async () => {
+      const uid = auth.currentUser?.uid;
+      if (!uid) {
+        setUserRole("student");
+        return;
+      }
+
+      try {
+        const userSnap = await getDoc(doc(db, "users", uid));
+        if (userSnap.exists()) {
+          setUserRole((userSnap.data()?.role || "student").toLowerCase());
+        } else {
+          setUserRole("student");
+        }
+      } catch (error) {
+        console.log("role fetch error:", error);
+        setUserRole("student");
+      }
+    };
+
+    loadRole();
+  }, []);
 
   useEffect(() => {
     const qRef = query(collection(db, "events"), orderBy("date", "asc"));
@@ -149,7 +184,7 @@ export default function Events() {
           return {
             id: d.id,
             ...data,
-            tags: normalizeTags(data.tags), // ✅ normalize ONCE here
+            tags: normalizeTags(data.tags),
           } as EventItem;
         });
         setEvents(list);
@@ -191,11 +226,11 @@ export default function Events() {
 
   return (
     <View style={styles.page}>
-      {/* Top bar */}
       <View style={styles.topBar}>
         <Pressable onPress={() => router.back()} style={styles.iconBtn}>
           <Ionicons name="arrow-back" size={22} color="#111827" />
         </Pressable>
+
         <Text style={styles.title}>Events</Text>
         <View style={styles.rightSpacer} />
 
@@ -204,9 +239,7 @@ export default function Events() {
         </Pressable>
       </View>
 
-      {/* ONE ScrollView */}
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-        {/* Search + campus filter icon */}
         <View style={styles.searchRow}>
           <View style={styles.searchWrap}>
             <Ionicons name="search" size={18} color="#9CA3AF" />
@@ -219,13 +252,11 @@ export default function Events() {
             />
           </View>
 
-          {/* ✅ Campus filter button */}
           <Pressable style={styles.filterBtn} onPress={() => setCampusModal(true)}>
             <Ionicons name="options-outline" size={20} color="#111827" />
           </Pressable>
         </View>
 
-        {/* Selected campus tag */}
         {campusTagLabel ? (
           <View style={styles.selectedRow}>
             <View style={styles.selectedChip}>
@@ -237,7 +268,6 @@ export default function Events() {
           </View>
         ) : null}
 
-        {/* Filter chips */}
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -258,7 +288,6 @@ export default function Events() {
           })}
         </ScrollView>
 
-        {/* Cards */}
         {filtered.map((e) => {
           const tagsArr = (Array.isArray(e.tags) ? e.tags : normalizeTags(e.tags)).slice(0, 6);
 
@@ -308,12 +337,12 @@ export default function Events() {
         <View style={{ height: 90 }} />
       </ScrollView>
 
-      {/* Floating + button */}
-      <Pressable style={styles.fab} onPress={() => router.push("/events/request" as any)}>
-        <Ionicons name="add" size={26} color="#fff" />
-      </Pressable>
+      {userRole !== "student" && (
+        <Pressable style={styles.fab} onPress={() => router.push("/events/request" as any)}>
+          <Ionicons name="add" size={26} color="#fff" />
+        </Pressable>
+      )}
 
-      {/* Campus modal */}
       <Modal
         visible={campusModal}
         transparent
@@ -382,9 +411,9 @@ const styles = StyleSheet.create({
   },
 
   requestsText: {
-  fontWeight: "800",
-  color: "#2563EB",
-},
+    fontWeight: "800",
+    color: "#2563EB",
+  },
 
   selectedRow: { paddingHorizontal: 16, paddingBottom: 6 },
   selectedChip: {
@@ -418,7 +447,13 @@ const styles = StyleSheet.create({
     marginHorizontal: 16,
     marginBottom: 14,
   },
-  hero: { width: "100%", height: 180, borderRadius: 16, marginBottom: 10, backgroundColor: "#E5E7EB" },
+  hero: {
+    width: "100%",
+    height: 180,
+    borderRadius: 16,
+    marginBottom: 10,
+    backgroundColor: "#E5E7EB",
+  },
 
   cardTitle: { fontSize: 18, fontWeight: "900", color: "#111827", marginBottom: 10 },
 
