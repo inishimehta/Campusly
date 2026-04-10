@@ -209,6 +209,35 @@ export default function Home() {
           onPress={() => router.push("/(app)/wellness" as Href)}
         />
 
+        {(role === "staff") && (
+          <>
+            <Tile
+              title="Manage Events"
+              image={require("../../assets/images/events.jpg")}
+              onPress={() => router.push("/(app)/staff-events" as Href)}
+            />
+          </>
+        )}
+
+        {(role === "advisor") && (
+          <>
+            <Tile
+              title="My Schedule"
+              image={require("../../assets/images/wellness.jpg")}
+              onPress={() =>
+                router.push("/(app)/advisor-schedule" as Href)
+              }
+            />
+            <Tile
+              title="My Bookings"
+              image={require("../../assets/images/wellness.jpg")}
+              onPress={() =>
+                router.push("/(app)/advisor-bookings" as Href)
+              }
+            />
+          </>
+        )}
+
         {role === "admin" && (
           <>
             <Tile
