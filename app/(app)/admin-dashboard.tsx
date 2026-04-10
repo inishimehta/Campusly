@@ -80,6 +80,14 @@ export default function AdminDashboard() {
             <Text style={styles.secondaryBtnText}>Manage Places List</Text>
             <Text style={styles.secondaryBtnHint}>Review + edit places</Text>
             </Pressable>
+
+            <Pressable
+            style={styles.secondaryBtn}
+            onPress={() => router.push("/(app)/staff-events" as Href)}
+            >
+            <Text style={styles.secondaryBtnText}>Manage Event List</Text>
+            <Text style={styles.secondaryBtnHint}>Approve / reject events</Text>
+            </Pressable>
         </View>
 
         <Text style={styles.note}>

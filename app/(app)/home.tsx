@@ -209,58 +209,8 @@ export default function Home() {
           onPress={() => router.push("/(app)/wellness" as Href)}
         />
 
-        {(role === "staff" || role === "admin") && (
-          <>
-            <Tile
-              title="Manage Events"
-              image={require("../../assets/images/events.jpg")}
-              onPress={() => router.push("/(app)/staff-events" as Href)}
-            />
-            <Tile
-              title="Contact Requests"
-              image={require("../../assets/images/events.jpg")}
-              onPress={() =>
-                router.push("/(app)/contact-requests" as Href)
-              }
-            />
-          </>
-        )}
-
-        {(role === "advisor" || role === "admin") && (
-          <>
-            <Tile
-              title="My Schedule"
-              image={require("../../assets/images/wellness.jpg")}
-              onPress={() =>
-                router.push("/(app)/advisor-schedule" as Href)
-              }
-            />
-            <Tile
-              title="My Bookings"
-              image={require("../../assets/images/wellness.jpg")}
-              onPress={() =>
-                router.push("/(app)/advisor-bookings" as Href)
-              }
-            />
-          </>
-        )}
-
         {role === "admin" && (
           <>
-            <Tile
-              title="Role Requests"
-              image={require("../../assets/images/events.jpg")}
-              onPress={() =>
-                router.push("/(app)/admin-role-requests" as Href)
-              }
-            />
-            <Tile
-              title="Manage Places"
-              image={require("../../assets/images/places.jpg")}
-              onPress={() =>
-                router.push("/(app)/manage-places" as Href)
-              }
-            />
             <Tile
               title="Admin Dashboard"
               image={require("../../assets/images/events.jpg")}

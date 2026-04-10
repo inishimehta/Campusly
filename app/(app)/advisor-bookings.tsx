@@ -8,7 +8,7 @@ export type Slot = {
   time: string;
   available: boolean;
   mode: SessionMode;
-  detail: string; // meeting link or address
+  detail: string;
 };
 
 export type AdvisorScheduleRecord = {
@@ -30,89 +30,100 @@ export type AdvisorBookingItem = {
   status: string;
 };
 
-let scheduleStore: Record<string, AdvisorScheduleRecord> = {
-  a1: {
-    advisorId: "a1",
-    advisorName: "Dr. Angelina Chen",
-    location: "Wellness Centre • Casa Loma",
-    slotsByDate: {
-      "2026-03-26": [
+function formatDateKey(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function isWeekday(date: Date) {
+  const day = date.getDay();
+  return day !== 0 && day !== 6;
+}
+
+function generateWorkingDaySlots(
+  startDate: string,
+  endDate: string,
+  campusAddress: string,
+  meetBase: string
+): Record<string, Slot[]> {
+  const result: Record<string, Slot[]> = {};
+
+  const current = new Date(startDate);
+  const end = new Date(endDate);
+
+  while (current <= end) {
+    if (isWeekday(current)) {
+      const key = formatDateKey(current);
+
+      result[key] = [
         {
           time: "10:00am",
           available: true,
           mode: "In Person",
-          detail: "George Brown College, Casa Loma Campus",
+          detail: campusAddress,
         },
         {
           time: "11:00am",
           available: true,
           mode: "Online",
-          detail: "https://meet.google.com/example-angelina-1",
-        },
-        {
-          time: "2:00pm",
-          available: true,
-          mode: "In Person",
-          detail: "George Brown College, Casa Loma Campus",
-        },
-      ],
-      "2026-03-27": [
-        {
-          time: "9:30am",
-          available: true,
-          mode: "Online",
-          detail: "https://meet.google.com/example-angelina-2",
+          detail: `${meetBase}/${key}/1`,
         },
         {
           time: "1:00pm",
           available: true,
           mode: "In Person",
-          detail: "George Brown College, Casa Loma Campus",
+          detail: campusAddress,
         },
-      ],
-    },
+        {
+          time: "2:30pm",
+          available: true,
+          mode: "Online",
+          detail: `${meetBase}/${key}/2`,
+        },
+      ];
+    }
+
+    current.setDate(current.getDate() + 1);
+  }
+
+  return result;
+}
+
+let scheduleStore: Record<string, AdvisorScheduleRecord> = {
+  a1: {
+    advisorId: "a1",
+    advisorName: "Dr. Angelina Chen",
+    location: "Wellness Centre • Casa Loma",
+    slotsByDate: generateWorkingDaySlots(
+      "2026-04-01",
+      "2026-05-15",
+      "George Brown College, Casa Loma Campus",
+      "https://meet.google.com/angelina-chen"
+    ),
   },
   a2: {
     advisorId: "a2",
     advisorName: "Michael Torres",
     location: "Student Services • Waterfront",
-    slotsByDate: {
-      "2026-03-26": [
-        {
-          time: "11:00am",
-          available: true,
-          mode: "In Person",
-          detail: "George Brown College, Waterfront Campus",
-        },
-        {
-          time: "12:30pm",
-          available: true,
-          mode: "Online",
-          detail: "https://meet.google.com/example-michael-1",
-        },
-      ],
-    },
+    slotsByDate: generateWorkingDaySlots(
+      "2026-04-01",
+      "2026-05-15",
+      "George Brown College, Waterfront Campus",
+      "https://meet.google.com/michael-torres"
+    ),
   },
   a3: {
     advisorId: "a3",
     advisorName: "Dr. Priya Patel",
     location: "Wellness Centre • St. James",
-    slotsByDate: {
-      "2026-03-26": [
-        {
-          time: "10:00am",
-          available: true,
-          mode: "Online",
-          detail: "https://meet.google.com/example-priya-1",
-        },
-        {
-          time: "12:00pm",
-          available: true,
-          mode: "In Person",
-          detail: "George Brown College, St. James Campus",
-        },
-      ],
-    },
+    slotsByDate: generateWorkingDaySlots(
+      "2026-04-01",
+      "2026-05-15",
+      "George Brown College, St. James Campus",
+      "https://meet.google.com/priya-patel"
+    ),
   },
 };
 

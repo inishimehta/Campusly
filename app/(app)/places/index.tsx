@@ -223,14 +223,14 @@ export default function PlacesIndex() {
       <Ionicons name="arrow-back" size={22} color="#111827" />
     </Pressable>
 
-    <Text style={styles.title}>places</Text>
+    <Text style={styles.title}>Places</Text>
   </View>
 
   <Pressable
     onPress={() => router.push("/(app)/places/my-place-requests")}
     style={styles.requestsBtn}
   >
-    <Text style={styles.requestsText}>My place requests</Text>
+    <Text style={styles.requestsText}>My Place Requests</Text>
   </Pressable>
 </View>
 
