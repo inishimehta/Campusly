@@ -1,51 +1,19 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import React, { useEffect, useMemo, useState } from "react";
-import { Image, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import {
+  ActivityIndicator,
+  Image,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
+import { getAdvisors, type Advisor } from "../advisor-bookings";
 
 type TabKey = "Advisors" | "Wellness Tools";
 
-type Advisor = {
-  id: string;
-  name: string;
-  role: string;
-  email: string;
-  phone: string;
-  hours: string;
-  avatarUrl: string;
-};
-
-const ADVISORS: Advisor[] = [
-  {
-    id: "a1",
-    name: "Dr. Angelina Chen",
-    role: "Mental Health Counselor",
-    email: "angelina.chen@georgebrown.ca",
-    phone: "(416) 415-5000 ext. 2345",
-    hours: "Mon–Fri, 9am–5pm",
-    avatarUrl: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=400&h=400&fit=crop",
-  },
-  {
-    id: "a2",
-    name: "Michael Torres",
-    role: "Academic Advisor",
-    email: "michael.torres@georgebrown.ca",
-    phone: "(416) 415-5000 ext. 2346",
-    hours: "Tue–Thu, 10am–6pm",
-    avatarUrl: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=400&h=400&fit=crop",
-  },
-  {
-    id: "a3",
-    name: "Dr. Priya Patel",
-    role: "Wellness Specialist",
-    email: "priya.patel@georgebrown.ca",
-    phone: "(416) 415-5000 ext. 2347",
-    hours: "Mon–Wed, 8am–4pm",
-    avatarUrl: "https://images.unsplash.com/photo-1554151228-14d9def656e4?w=400&h=400&fit=crop",
-  },
-];
-
-// -------- Wellness Tools data + helpers --------
 type MeditationTool = {
   id: string;
   title: string;
@@ -125,7 +93,6 @@ function WellnessTools() {
   const [selectedMinutes, setSelectedMinutes] = useState<number>(5);
   const [secondsLeft, setSecondsLeft] = useState<number>(5 * 60);
   const [running, setRunning] = useState(false);
-
   const [tips, setTips] = useState<Tip[]>(() => shuffleArray(DEFAULT_TIPS));
 
   useEffect(() => {
@@ -250,14 +217,41 @@ function WellnessTools() {
   );
 }
 
-// -------- Screen --------
 export default function Wellness() {
   const router = useRouter();
   const [tab, setTab] = useState<TabKey>("Advisors");
+  const [advisors, setAdvisors] = useState<Advisor[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const loadAdvisors = async () => {
+      try {
+        const data = await getAdvisors();
+        setAdvisors(data);
+      } catch (error) {
+        console.error("Failed to load advisors:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadAdvisors();
+  }, []);
 
   const content = useMemo(() => {
     if (tab === "Wellness Tools") {
       return <WellnessTools />;
+    }
+
+    if (loading) {
+      return (
+        <View style={{ paddingTop: 24, alignItems: "center" }}>
+          <ActivityIndicator size="large" color="#111827" />
+          <Text style={{ marginTop: 12, color: "#6B7280", fontWeight: "700" }}>
+            Loading advisors...
+          </Text>
+        </View>
+      );
     }
 
     return (
@@ -266,10 +260,9 @@ export default function Wellness() {
           Connect with our team of wellness professionals for support and guidance.
         </Text>
 
-        {ADVISORS.map((a) => (
+        {advisors.map((a) => (
           <View key={a.id} style={styles.card}>
             <View style={styles.cardTop}>
-              {/* ✅ Avatar Image */}
               {a.avatarUrl ? (
                 <Image source={{ uri: a.avatarUrl }} style={styles.avatarImg} />
               ) : (
@@ -316,7 +309,7 @@ export default function Wellness() {
         ))}
       </>
     );
-  }, [tab, router]);
+  }, [tab, router, advisors, loading]);
 
   return (
     <View style={styles.page}>
@@ -396,7 +389,6 @@ const styles = StyleSheet.create({
   },
   primaryBtnText: { color: "#FFFFFF", fontWeight: "900" },
 
-  // ---- Wellness Tools ----
   sectionHeader: { fontSize: 22, fontWeight: "900", color: "#111827", marginTop: 2 },
 
   timerCard: {

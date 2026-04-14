@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -9,6 +9,7 @@ import {
   Modal,
   Linking,
   Alert,
+  ActivityIndicator,
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { CalendarList, type DateData } from "react-native-calendars";
@@ -45,24 +46,10 @@ export default function BookAppointment() {
       ? params.studentEmail
       : "student@gblearn.com";
 
-  const initialSchedule: AdvisorScheduleRecord =
-    getAdvisorSchedule(advisorId) ?? {
-      advisorId,
-      advisorName,
-      location: "Wellness Centre",
-      slotsByDate: {},
-    };
+  const [schedule, setSchedule] = useState<AdvisorScheduleRecord | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  const [schedule, setSchedule] = useState<AdvisorScheduleRecord>(initialSchedule);
-
-  const today = todayISO();
-  const availableDates = useMemo(
-    () => Object.keys(schedule.slotsByDate),
-    [schedule.slotsByDate]
-  );
-  const firstAvailable = availableDates[0] ?? today;
-
-  const [selectedDate, setSelectedDate] = useState<string>(firstAvailable);
+  const [selectedDate, setSelectedDate] = useState<string>(todayISO());
   const [selectedSlot, setSelectedSlot] = useState<Slot | null>(null);
 
   const [showConfirm, setShowConfirm] = useState(false);
@@ -73,38 +60,84 @@ export default function BookAppointment() {
     detail: string;
   } | null>(null);
 
+  useEffect(() => {
+    const loadSchedule = async () => {
+      try {
+        const data = await getAdvisorSchedule(advisorId);
+
+        const fallback: AdvisorScheduleRecord = {
+          advisorId,
+          advisorName,
+          location: "Wellness Centre",
+          slotsByDate: {},
+        };
+
+        const finalSchedule = data ?? fallback;
+        setSchedule(finalSchedule);
+
+        const dates = Object.keys(finalSchedule.slotsByDate);
+        if (dates.length > 0) {
+          setSelectedDate(dates[0]);
+        }
+      } catch (error) {
+        console.error("Failed to load advisor schedule:", error);
+        setSchedule({
+          advisorId,
+          advisorName,
+          location: "Wellness Centre",
+          slotsByDate: {},
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadSchedule();
+  }, [advisorId, advisorName]);
+
+  const availableDates = useMemo(() => {
+    if (!schedule) return [];
+    return Object.keys(schedule.slotsByDate);
+  }, [schedule]);
+
   const markedDates = useMemo(() => {
     const marks: Record<string, any> = {};
+
+    if (!schedule) return marks;
 
     for (const date of availableDates) {
       const hasAvailable = (schedule.slotsByDate[date] ?? []).some(
         (s: Slot) => s.available
       );
+
       if (hasAvailable) {
         marks[date] = { marked: true, dotColor: "#10B981" };
       }
     }
 
-    marks[selectedDate] = {
-      ...(marks[selectedDate] ?? {}),
-      selected: true,
-      selectedColor: "#111827",
-    };
+    if (selectedDate) {
+      marks[selectedDate] = {
+        ...(marks[selectedDate] ?? {}),
+        selected: true,
+        selectedColor: "#111827",
+      };
+    }
 
     return marks;
-  }, [availableDates, schedule.slotsByDate, selectedDate]);
+  }, [availableDates, schedule, selectedDate]);
 
   const slotsForDay = useMemo(() => {
+    if (!schedule) return [];
     const slots = schedule.slotsByDate[selectedDate] ?? [];
     return [...slots].sort((a, b) => Number(b.available) - Number(a.available));
-  }, [schedule.slotsByDate, selectedDate]);
+  }, [schedule, selectedDate]);
 
   const onPickDay = (day: DateData) => {
     setSelectedDate(day.dateString);
     setSelectedSlot(null);
   };
 
-  const canContinue = Boolean(selectedSlot);
+  const canContinue = Boolean(selectedSlot && schedule);
 
   const openConfirmationEmail = async (
     date: string,
@@ -112,6 +145,8 @@ export default function BookAppointment() {
     mode: string,
     detail: string
   ) => {
+    if (!schedule) return;
+
     const subject = encodeURIComponent("Wellness Appointment Confirmation");
     const body = encodeURIComponent(
       `Your appointment has been booked.\n\nAdvisor: ${advisorName}\nDate: ${date}\nTime: ${time}\nSession Type: ${mode}\n${
@@ -135,6 +170,26 @@ export default function BookAppointment() {
       Alert.alert("Email draft could not be opened.");
     }
   };
+
+  if (loading) {
+    return (
+      <View style={[styles.page, styles.centered]}>
+        <ActivityIndicator size="large" color="#111827" />
+        <Text style={styles.loadingText}>Loading schedule...</Text>
+      </View>
+    );
+  }
+
+  if (!schedule) {
+    return (
+      <View style={[styles.page, styles.centered]}>
+        <Text style={styles.errorText}>Could not load advisor schedule.</Text>
+        <Pressable style={styles.modalBtn} onPress={() => router.back()}>
+          <Text style={styles.modalBtnText}>Go Back</Text>
+        </Pressable>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.page}>
@@ -166,6 +221,7 @@ export default function BookAppointment() {
 
             <Pressable
               onPress={() => {
+                const today = todayISO();
                 setSelectedDate(today);
                 setSelectedSlot(null);
                 calRef.current?.scrollToDay?.(new Date(), 0, true);
@@ -215,7 +271,7 @@ export default function BookAppointment() {
 
                 return (
                   <Pressable
-                    key={`${selectedDate}-${s.time}`}
+                    key={`${selectedDate}-${s.time}-${s.mode}`}
                     disabled={disabled}
                     onPress={() => setSelectedSlot(s)}
                     style={[
@@ -264,7 +320,7 @@ export default function BookAppointment() {
           disabled={!canContinue}
           style={[styles.nextBtn, !canContinue && styles.nextBtnDisabled]}
           onPress={async () => {
-            if (!selectedSlot) return;
+            if (!selectedSlot || !schedule) return;
 
             const bookedDate = selectedDate;
             const bookedSlot = selectedSlot;
@@ -274,41 +330,51 @@ export default function BookAppointment() {
               slotsByDate: {
                 ...schedule.slotsByDate,
                 [bookedDate]: (schedule.slotsByDate[bookedDate] ?? []).filter(
-                  (s) => s.time !== bookedSlot.time
+                  (s) =>
+                    !(
+                      s.time === bookedSlot.time &&
+                      s.mode === bookedSlot.mode &&
+                      s.detail === bookedSlot.detail
+                    )
                 ),
               },
             };
 
-            setSchedule(updatedSchedule);
-            saveAdvisorSchedule(updatedSchedule);
+            try {
+              setSchedule(updatedSchedule);
+              await saveAdvisorSchedule(updatedSchedule);
 
-            addAdvisorBooking({
-              advisorId,
-              advisorName,
-              date: bookedDate,
-              time: bookedSlot.time,
-              location: schedule.location,
-              mode: bookedSlot.mode,
-              detail: bookedSlot.detail,
-              studentEmail,
-              status: "Booked",
-            });
+              await addAdvisorBooking({
+                advisorId,
+                advisorName,
+                date: bookedDate,
+                time: bookedSlot.time,
+                location: schedule.location,
+                mode: bookedSlot.mode,
+                detail: bookedSlot.detail,
+                studentEmail,
+                status: "Booked",
+              });
 
-            await openConfirmationEmail(
-              bookedDate,
-              bookedSlot.time,
-              bookedSlot.mode,
-              bookedSlot.detail
-            );
+              await openConfirmationEmail(
+                bookedDate,
+                bookedSlot.time,
+                bookedSlot.mode,
+                bookedSlot.detail
+              );
 
-            setSelectedSlot(null);
-            setBookedInfo({
-              date: bookedDate,
-              time: bookedSlot.time,
-              mode: bookedSlot.mode,
-              detail: bookedSlot.detail,
-            });
-            setShowConfirm(true);
+              setSelectedSlot(null);
+              setBookedInfo({
+                date: bookedDate,
+                time: bookedSlot.time,
+                mode: bookedSlot.mode,
+                detail: bookedSlot.detail,
+              });
+              setShowConfirm(true);
+            } catch (error) {
+              console.error("Booking failed:", error);
+              Alert.alert("Booking failed", "Could not save this booking.");
+            }
           }}
         >
           <Text style={styles.nextBtnText}>
@@ -351,7 +417,29 @@ export default function BookAppointment() {
 }
 
 const styles = StyleSheet.create({
-  page: { flex: 1, backgroundColor: "#F6F7FB", paddingTop: 48 },
+  page: {
+    flex: 1,
+    backgroundColor: "#F6F7FB",
+    paddingTop: 48,
+  },
+
+  centered: {
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 24,
+  },
+
+  loadingText: {
+    marginTop: 12,
+    color: "#6B7280",
+    fontWeight: "700",
+  },
+
+  errorText: {
+    color: "#111827",
+    fontWeight: "800",
+    marginBottom: 16,
+  },
 
   topBar: {
     flexDirection: "row",
@@ -365,10 +453,20 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  title: { fontSize: 18, fontWeight: "900", color: "#111827" },
-  rightSpacer: { flex: 1 },
+  title: {
+    fontSize: 18,
+    fontWeight: "900",
+    color: "#111827",
+  },
+  rightSpacer: {
+    flex: 1,
+  },
 
-  scroll: { paddingHorizontal: 16, paddingTop: 12, gap: 12 },
+  scroll: {
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    gap: 12,
+  },
 
   headerCard: {
     backgroundColor: "#FFFFFF",
@@ -378,10 +476,27 @@ const styles = StyleSheet.create({
     gap: 12,
     alignItems: "center",
   },
-  avatar: { width: 46, height: 46, borderRadius: 23, backgroundColor: "#E5E7EB" },
-  avatarImg: { width: 46, height: 46, borderRadius: 23 },
-  clinicTitle: { fontSize: 16, fontWeight: "900", color: "#111827" },
-  clinicSub: { marginTop: 2, color: "#6B7280", fontWeight: "700" },
+  avatar: {
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    backgroundColor: "#E5E7EB",
+  },
+  avatarImg: {
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+  },
+  clinicTitle: {
+    fontSize: 16,
+    fontWeight: "900",
+    color: "#111827",
+  },
+  clinicSub: {
+    marginTop: 2,
+    color: "#6B7280",
+    fontWeight: "700",
+  },
 
   calendarCard: {
     backgroundColor: "#FFFFFF",
@@ -394,16 +509,26 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
   },
-  sectionTitle: { fontSize: 16, fontWeight: "900", color: "#111827" },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: "900",
+    color: "#111827",
+  },
   todayBtn: {
     paddingVertical: 6,
     paddingHorizontal: 10,
     borderRadius: 999,
     backgroundColor: "#F3F4F6",
   },
-  todayBtnText: { fontWeight: "900", color: "#111827", fontSize: 12 },
+  todayBtnText: {
+    fontWeight: "900",
+    color: "#111827",
+    fontSize: 12,
+  },
 
-  calendar: { borderRadius: 12 },
+  calendar: {
+    borderRadius: 12,
+  },
 
   slotsCard: {
     backgroundColor: "#FFFFFF",
@@ -411,9 +536,14 @@ const styles = StyleSheet.create({
     padding: 14,
     gap: 10,
   },
-  muted: { color: "#6B7280", fontWeight: "700" },
+  muted: {
+    color: "#6B7280",
+    fontWeight: "700",
+  },
 
-  slotsColumn: { gap: 10 },
+  slotsColumn: {
+    gap: 10,
+  },
 
   slotCard: {
     flexDirection: "row",
@@ -485,8 +615,13 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     alignItems: "center",
   },
-  nextBtnDisabled: { opacity: 0.45 },
-  nextBtnText: { color: "#FFFFFF", fontWeight: "900" },
+  nextBtnDisabled: {
+    opacity: 0.45,
+  },
+  nextBtnText: {
+    color: "#FFFFFF",
+    fontWeight: "900",
+  },
 
   modalBackdrop: {
     flex: 1,
@@ -503,8 +638,15 @@ const styles = StyleSheet.create({
     padding: 18,
     gap: 10,
   },
-  modalTitle: { fontSize: 18, fontWeight: "900", color: "#111827" },
-  modalText: { color: "#374151", fontWeight: "700" },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: "900",
+    color: "#111827",
+  },
+  modalText: {
+    color: "#374151",
+    fontWeight: "700",
+  },
   modalBtn: {
     marginTop: 8,
     backgroundColor: "#0B0B16",
@@ -512,6 +654,13 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     alignItems: "center",
   },
-  modalBtnText: { color: "#FFFFFF", fontWeight: "900" },
-  modalLink: { textAlign: "center", fontWeight: "900", color: "#2563EB" },
+  modalBtnText: {
+    color: "#FFFFFF",
+    fontWeight: "900",
+  },
+  modalLink: {
+    textAlign: "center",
+    fontWeight: "900",
+    color: "#2563EB",
+  },
 });

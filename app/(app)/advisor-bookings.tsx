@@ -1,6 +1,22 @@
-import React, { useState } from "react";
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from "react-native";
+import React, { useCallback, useState } from "react";
+import {
+  ActivityIndicator,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
 import { useFocusEffect, useRouter } from "expo-router";
+import {
+  collection,
+  doc,
+  getDoc,
+  getDocs,
+  updateDoc,
+  setDoc,
+} from "firebase/firestore";
+import { db } from "../../firebaseConfig";
 
 export type SessionMode = "Online" | "In Person";
 
@@ -30,131 +46,98 @@ export type AdvisorBookingItem = {
   status: string;
 };
 
-function formatDateKey(date: Date) {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-}
-
-function isWeekday(date: Date) {
-  const day = date.getDay();
-  return day !== 0 && day !== 6;
-}
-
-function generateWorkingDaySlots(
-  startDate: string,
-  endDate: string,
-  campusAddress: string,
-  meetBase: string
-): Record<string, Slot[]> {
-  const result: Record<string, Slot[]> = {};
-
-  const current = new Date(startDate);
-  const end = new Date(endDate);
-
-  while (current <= end) {
-    if (isWeekday(current)) {
-      const key = formatDateKey(current);
-
-      result[key] = [
-        {
-          time: "10:00am",
-          available: true,
-          mode: "In Person",
-          detail: campusAddress,
-        },
-        {
-          time: "11:00am",
-          available: true,
-          mode: "Online",
-          detail: `${meetBase}/${key}/1`,
-        },
-        {
-          time: "1:00pm",
-          available: true,
-          mode: "In Person",
-          detail: campusAddress,
-        },
-        {
-          time: "2:30pm",
-          available: true,
-          mode: "Online",
-          detail: `${meetBase}/${key}/2`,
-        },
-      ];
-    }
-
-    current.setDate(current.getDate() + 1);
-  }
-
-  return result;
-}
-
-let scheduleStore: Record<string, AdvisorScheduleRecord> = {
-  a1: {
-    advisorId: "a1",
-    advisorName: "Dr. Angelina Chen",
-    location: "Wellness Centre • Casa Loma",
-    slotsByDate: generateWorkingDaySlots(
-      "2026-04-01",
-      "2026-05-15",
-      "George Brown College, Casa Loma Campus",
-      "https://meet.google.com/angelina-chen"
-    ),
-  },
-  a2: {
-    advisorId: "a2",
-    advisorName: "Michael Torres",
-    location: "Student Services • Waterfront",
-    slotsByDate: generateWorkingDaySlots(
-      "2026-04-01",
-      "2026-05-15",
-      "George Brown College, Waterfront Campus",
-      "https://meet.google.com/michael-torres"
-    ),
-  },
-  a3: {
-    advisorId: "a3",
-    advisorName: "Dr. Priya Patel",
-    location: "Wellness Centre • St. James",
-    slotsByDate: generateWorkingDaySlots(
-      "2026-04-01",
-      "2026-05-15",
-      "George Brown College, St. James Campus",
-      "https://meet.google.com/priya-patel"
-    ),
-  },
+export type Advisor = {
+  id: string;
+  name: string;
+  role: string;
+  email: string;
+  phone: string;
+  hours: string;
+  avatarUrl: string;
+  isActive?: boolean;
 };
 
-let bookingStore: AdvisorBookingItem[] = [];
-
-export function getAdvisorSchedule(advisorId: string): AdvisorScheduleRecord | null {
-  return scheduleStore[advisorId] ?? null;
+export async function getAdvisors(): Promise<Advisor[]> {
+  const snap = await getDocs(collection(db, "advisors"));
+  return snap.docs
+    .map((d) => d.data() as Advisor)
+    .filter((advisor) => advisor.isActive !== false);
 }
 
-export function saveAdvisorSchedule(schedule: AdvisorScheduleRecord) {
-  scheduleStore = {
-    ...scheduleStore,
-    [schedule.advisorId]: schedule,
+export async function getAdvisorSchedule(
+  advisorId: string
+): Promise<AdvisorScheduleRecord | null> {
+  const ref = doc(db, "advisorSchedules", advisorId);
+  const snap = await getDoc(ref);
+
+  if (!snap.exists()) return null;
+
+  return snap.data() as AdvisorScheduleRecord;
+}
+
+export async function saveAdvisorSchedule(schedule: AdvisorScheduleRecord) {
+  const ref = doc(db, "advisorSchedules", schedule.advisorId);
+  const snap = await getDoc(ref);
+
+  const payload = {
+    advisorId: schedule.advisorId,
+    advisorName: schedule.advisorName,
+    location: schedule.location,
+    slotsByDate: schedule.slotsByDate,
   };
+
+  if (snap.exists()) {
+    await updateDoc(ref, payload);
+  } else {
+    await setDoc(ref, payload);
+  }
 }
 
-export function addAdvisorBooking(booking: AdvisorBookingItem) {
-  bookingStore = [booking, ...bookingStore];
+export async function addAdvisorBooking(booking: AdvisorBookingItem) {
+  const safeTime = booking.time.replace(/\s+/g, "").replace(/:/g, "");
+  const bookingId = `${booking.advisorId}_${booking.date}_${safeTime}`;
+
+  await setDoc(doc(db, "advisorBookings", bookingId), booking);
 }
 
-export function getAllAdvisorBookings() {
-  return [...bookingStore];
+export async function getAllAdvisorBookings(): Promise<AdvisorBookingItem[]> {
+  const snap = await getDocs(collection(db, "advisorBookings"));
+
+  return snap.docs
+    .map((d) => d.data() as AdvisorBookingItem)
+    .sort((a, b) => {
+      const aKey = `${a.date} ${a.time}`;
+      const bKey = `${b.date} ${b.time}`;
+      return bKey.localeCompare(aKey);
+    });
 }
 
-export default function AdvisorBookings() {
+export default function AdvisorBookingsScreen() {
   const router = useRouter();
   const [bookings, setBookings] = useState<AdvisorBookingItem[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useFocusEffect(
-    React.useCallback(() => {
-      setBookings(getAllAdvisorBookings());
+    useCallback(() => {
+      let active = true;
+
+      const load = async () => {
+        try {
+          setLoading(true);
+          const data = await getAllAdvisorBookings();
+          if (active) setBookings(data);
+        } catch (error) {
+          console.error("Failed to load advisor bookings:", error);
+        } finally {
+          if (active) setLoading(false);
+        }
+      };
+
+      load();
+
+      return () => {
+        active = false;
+      };
     }, [])
   );
 
@@ -168,7 +151,14 @@ export default function AdvisorBookings() {
         <Text style={styles.header}>Advisor Bookings</Text>
         <Text style={styles.subheader}>Booked wellness appointments</Text>
 
-        {bookings.length === 0 ? (
+        {loading ? (
+          <View style={styles.emptyCard}>
+            <ActivityIndicator size="large" color="#111827" />
+            <Text style={[styles.emptyText, { marginTop: 12 }]}>
+              Loading bookings...
+            </Text>
+          </View>
+        ) : bookings.length === 0 ? (
           <View style={styles.emptyCard}>
             <Text style={styles.emptyText}>No bookings yet.</Text>
           </View>
@@ -180,7 +170,8 @@ export default function AdvisorBookings() {
               <Text style={styles.detail}>Time: {booking.time}</Text>
               <Text style={styles.detail}>Session: {booking.mode}</Text>
               <Text style={styles.detail}>
-                {booking.mode === "Online" ? "Meeting Link" : "Address"}: {booking.detail}
+                {booking.mode === "Online" ? "Meeting Link" : "Address"}:{" "}
+                {booking.detail}
               </Text>
               <Text style={styles.detail}>Location: {booking.location}</Text>
               <Text style={styles.detail}>
@@ -233,6 +224,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 20,
     elevation: 2,
+    alignItems: "center",
   },
   emptyText: {
     color: "#6B7280",
