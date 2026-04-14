@@ -1,5 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
+import { Href, useRouter } from "expo-router";
 import React, { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
@@ -8,9 +8,13 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  View,
+  View
 } from "react-native";
 import { getAdvisors, type Advisor } from "../advisor-bookings";
+
+// --- Added Firebase Imports for Events ---
+import { collection, onSnapshot, orderBy, query, Timestamp, where } from "firebase/firestore";
+import { db } from "../../../firebaseConfig";
 
 type TabKey = "Advisors" | "Wellness Tools";
 
@@ -29,16 +33,6 @@ type Tip = {
   desc: string;
 };
 
-type WellnessEvent = {
-  id: string;
-  title: string;
-  when: string;
-  where: string;
-  icon: keyof typeof Ionicons.glyphMap;
-  badgeBg: string;
-  badgeFg: string;
-};
-
 const MEDITATION_TOOLS: MeditationTool[] = [
   { id: "breathing", title: "Breathing", desc: "5-minute guided breathing exercise", minutes: 5, icon: "leaf-outline" },
   { id: "grounding", title: "Grounding", desc: "5-4-3-2-1 sensory technique", minutes: 3, icon: "hand-left-outline" },
@@ -51,27 +45,6 @@ const DEFAULT_TIPS: Tip[] = [
   { id: "t2", emoji: "👀", title: "Take Breaks", desc: "Rest your eyes every 20 minutes" },
   { id: "t3", emoji: "🚶", title: "Move Your Body", desc: "Stretch or walk once an hour" },
   { id: "t4", emoji: "😴", title: "Sleep Routine", desc: "Try consistent sleep and wake times" },
-];
-
-const WELLNESS_EVENTS: WellnessEvent[] = [
-  {
-    id: "e1",
-    title: "Yoga & Mindfulness",
-    when: "Nov 25, 2025 • 5:00 PM",
-    where: "Wellness Centre",
-    icon: "calendar-outline",
-    badgeBg: "#DCFCE7",
-    badgeFg: "#166534",
-  },
-  {
-    id: "e2",
-    title: "Stress Management Workshop",
-    when: "Dec 3, 2025 • 2:00 PM",
-    where: "Room B204",
-    icon: "school-outline",
-    badgeBg: "#E0E7FF",
-    badgeFg: "#3730A3",
-  },
 ];
 
 function formatMMSS(totalSeconds: number) {
@@ -89,11 +62,102 @@ function shuffleArray<T>(arr: T[]) {
   return a;
 }
 
+// --- Added Firebase Formatting Helpers for Events ---
+function fmtDate(ts?: Timestamp) {
+  if (!ts) return "";
+  const d = ts.toDate();
+  return d.toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
+function fmtTimeRange(start?: Timestamp, end?: Timestamp) {
+  if (!start) return "";
+  const s = start
+    .toDate()
+    .toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+  if (!end) return s;
+  const e = end
+    .toDate()
+    .toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+  return `${s} - ${e}`;
+}
+
+function normalizeTags(raw: any): string[] {
+  if (Array.isArray(raw)) {
+    const out: string[] = [];
+    for (const item of raw) {
+      if (typeof item === "string") {
+        const parsed = normalizeTags(item);
+        if (parsed.length > 1) out.push(...parsed);
+        else out.push(item);
+      } else if (item != null) {
+        out.push(String(item));
+      }
+    }
+    return out.map((x) => String(x).trim()).filter(Boolean);
+  }
+
+  if (typeof raw === "string") {
+    let s = raw.trim();
+    if ((s.startsWith('"') && s.endsWith('"')) || (s.startsWith("'") && s.endsWith("'"))) {
+      s = s.slice(1, -1).trim();
+    }
+    if (s.startsWith("[") && s.endsWith("]")) {
+      try {
+        const parsed = JSON.parse(s);
+        if (Array.isArray(parsed)) return parsed.map(String).filter(Boolean);
+      } catch {}
+      const inner = s.slice(1, -1);
+      return inner.split(",").map((x) => x.replace(/^\s*['"]/, "").replace(/['"]\s*$/, "").trim()).filter(Boolean);
+    }
+    if (s.includes(",")) {
+      return s.split(",").map((x) => x.trim()).filter(Boolean);
+    }
+    return s ? [s] : [];
+  }
+  return [];
+}
+
+
 function WellnessTools() {
+  const router = useRouter(); // Allow clicking events to route
   const [selectedMinutes, setSelectedMinutes] = useState<number>(5);
   const [secondsLeft, setSecondsLeft] = useState<number>(5 * 60);
   const [running, setRunning] = useState(false);
   const [tips, setTips] = useState<Tip[]>(() => shuffleArray(DEFAULT_TIPS));
+
+  // --- Added State for Firebase Events ---
+  const [wellnessEvents, setWellnessEvents] = useState<any[]>([]);
+
+  // --- Added Firebase Fetching Logic ---
+  useEffect(() => {
+    const qRef = query(
+      collection(db, "events"),
+      where("tags", "array-contains", "Wellness"),
+      orderBy("date", "asc")
+    );
+
+    const unsub = onSnapshot(
+      qRef,
+      (snap) => {
+        const list = snap.docs.map((d) => {
+          const data = d.data() as any;
+          return {
+            id: d.id,
+            ...data,
+            tags: normalizeTags(data.tags),
+          };
+        });
+        setWellnessEvents(list);
+      },
+      (err) => console.log("wellness events snapshot error:", err)
+    );
+
+    return unsub;
+  }, []);
 
   useEffect(() => {
     if (!running) return;
@@ -199,19 +263,31 @@ function WellnessTools() {
       <Text style={styles.sectionHeader}>Suggested Wellness Events</Text>
 
       <View style={{ gap: 12 }}>
-        {WELLNESS_EVENTS.map((e) => (
-          <View key={e.id} style={styles.eventCard}>
-            <View style={[styles.eventBadge, { backgroundColor: e.badgeBg }]}>
-              <Ionicons name={e.icon} size={20} color={e.badgeFg} />
-            </View>
+        {wellnessEvents.length > 0 ? (
+          wellnessEvents.map((e) => (
+            <Pressable 
+              key={e.id} 
+              style={styles.eventCard}
+              onPress={() => router.push(`/events/${e.id}` as Href)}
+            >
+              <View style={[styles.eventBadge, { backgroundColor: "#DCFCE7" }]}>
+                <Ionicons name="calendar-outline" size={20} color="#166534" />
+              </View>
 
-            <View style={{ flex: 1 }}>
-              <Text style={styles.eventTitle}>{e.title}</Text>
-              <Text style={styles.eventMeta}>{e.when}</Text>
-              <Text style={styles.eventMeta}>{e.where}</Text>
-            </View>
-          </View>
-        ))}
+              <View style={{ flex: 1 }}>
+                <Text style={styles.eventTitle}>{e.title || "Untitled Event"}</Text>
+                <Text style={styles.eventMeta}>
+                  {fmtDate(e.date)} {e.date ? "•" : ""} {fmtTimeRange(e.date, e.endDate)}
+                </Text>
+                <Text style={styles.eventMeta}>{e.location || "Location not set"}</Text>
+              </View>
+            </Pressable>
+          ))
+        ) : (
+          <Text style={{ color: "#6B7280", fontWeight: "600", paddingVertical: 8 }}>
+            No upcoming wellness events found.
+          </Text>
+        )}
       </View>
     </View>
   );
