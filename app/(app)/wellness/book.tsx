@@ -14,10 +14,10 @@ import {
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { CalendarList, type DateData } from "react-native-calendars";
 import { Ionicons } from "@expo/vector-icons";
+import { getAuth } from "firebase/auth";
 import {
   addAdvisorBooking,
   getAdvisorSchedule,
-  saveAdvisorSchedule,
   type AdvisorScheduleRecord,
   type Slot,
 } from "../advisor-bookings";
@@ -41,10 +41,11 @@ export default function BookAppointment() {
   const avatarUrl =
     typeof params.avatarUrl === "string" ? params.avatarUrl : undefined;
 
-  const studentEmail =
-    typeof params.studentEmail === "string" && params.studentEmail.trim()
-      ? params.studentEmail
-      : "student@gblearn.com";
+  const auth = getAuth();
+  const currentUser = auth.currentUser;
+
+  const studentEmail = currentUser?.email || "";
+  const studentUid = currentUser?.uid || "";
 
   const [schedule, setSchedule] = useState<AdvisorScheduleRecord | null>(null);
   const [loading, setLoading] = useState(true);
@@ -145,7 +146,7 @@ export default function BookAppointment() {
     mode: string,
     detail: string
   ) => {
-    if (!schedule) return;
+    if (!schedule || !studentEmail) return;
 
     const subject = encodeURIComponent("Wellness Appointment Confirmation");
     const body = encodeURIComponent(
@@ -322,28 +323,15 @@ export default function BookAppointment() {
           onPress={async () => {
             if (!selectedSlot || !schedule) return;
 
+            if (!currentUser || !studentUid) {
+              Alert.alert("Sign in required", "Please sign in before booking.");
+              return;
+            }
+
             const bookedDate = selectedDate;
             const bookedSlot = selectedSlot;
 
-            const updatedSchedule: AdvisorScheduleRecord = {
-              ...schedule,
-              slotsByDate: {
-                ...schedule.slotsByDate,
-                [bookedDate]: (schedule.slotsByDate[bookedDate] ?? []).filter(
-                  (s) =>
-                    !(
-                      s.time === bookedSlot.time &&
-                      s.mode === bookedSlot.mode &&
-                      s.detail === bookedSlot.detail
-                    )
-                ),
-              },
-            };
-
             try {
-              setSchedule(updatedSchedule);
-              await saveAdvisorSchedule(updatedSchedule);
-
               await addAdvisorBooking({
                 advisorId,
                 advisorName,
@@ -353,6 +341,7 @@ export default function BookAppointment() {
                 mode: bookedSlot.mode,
                 detail: bookedSlot.detail,
                 studentEmail,
+                studentUid,
                 status: "Booked",
               });
 
