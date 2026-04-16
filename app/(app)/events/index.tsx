@@ -234,7 +234,11 @@ export default function Events() {
         <Text style={styles.title}>Events</Text>
         <View style={styles.rightSpacer} />
 
-        {userRole !== "student" ? (
+        {userRole === "admin" || userRole === "staff" ? (
+          <Pressable onPress={() => router.push("/(app)/staff-events")}>
+            <Text style={styles.requestsText}>Review Requests</Text>
+          </Pressable>
+        ) : userRole !== "student" ? (
           <Pressable onPress={() => router.push("/(app)/events/my-event-requests")}>
             <Text style={styles.requestsText}>My Event Requests</Text>
           </Pressable>

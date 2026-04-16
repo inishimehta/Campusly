@@ -1,5 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
+import { doc, getDoc, onSnapshot, Timestamp } from "firebase/firestore";
 import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
@@ -10,10 +11,9 @@ import {
   Share,
   StyleSheet,
   Text,
-  View,
+  View
 } from "react-native";
-import { doc, onSnapshot, Timestamp } from "firebase/firestore";
-import { db } from "../../../firebaseConfig";
+import { auth, db } from "../../../firebaseConfig";
 
 type EventDoc = {
   title: string;
@@ -30,6 +30,7 @@ type EventDoc = {
   priceLabel?: string;
   organizer?: string;
   description?: string;
+  isFree?: boolean;
 };
 
 function formatDate(ts?: Timestamp) {
@@ -100,7 +101,24 @@ export default function EventDetails() {
 
   const [event, setEvent] = useState<EventDoc | null>(null);
   const [loading, setLoading] = useState(true);
+  const [userRole, setUserRole] = useState("student");
 
+  // Fetch user role
+  useEffect(() => {
+    const loadRole = async () => {
+      const uid = auth.currentUser?.uid;
+      if (!uid) return;
+      try {
+        const snap = await getDoc(doc(db, "users", uid));
+        if (snap.exists()) {
+          setUserRole(snap.data()?.role?.toLowerCase() || "student");
+        }
+      } catch (err) {}
+    };
+    loadRole();
+  }, []);
+
+  // Fetch Event Data
   useEffect(() => {
     if (!id) return;
 
@@ -165,9 +183,17 @@ export default function EventDetails() {
           <Pressable onPress={() => router.back()} style={styles.circleBtn}>
             <Ionicons name="arrow-back" size={20} color="#111827" />
           </Pressable>
-          <Pressable onPress={onShare} style={styles.circleBtn}>
-            <Ionicons name="share-outline" size={20} color="#111827" />
-          </Pressable>
+          <View style={{ flexDirection: "row", gap: 10 }}>
+            {/* Show Edit Button only for Staff and Admin */}
+            {(userRole === "admin" || userRole === "staff") && (
+              <Pressable onPress={() => router.push(`/events/${id}/edit` as any)} style={styles.circleBtn}>
+                <Ionicons name="pencil" size={20} color="#111827" />
+              </Pressable>
+            )}
+            <Pressable onPress={onShare} style={styles.circleBtn}>
+              <Ionicons name="share-outline" size={20} color="#111827" />
+            </Pressable>
+          </View>
         </View>
       </View>
 
@@ -188,7 +214,7 @@ export default function EventDetails() {
         <View style={styles.infoCard}>
           <View style={styles.infoRow}>
             <Ionicons name="calendar-outline" size={18} color="#6B7280" />
-            <View style={{ flex: 1 }}>
+            <View style={{ flex: 1, paddingLeft: 8 }}>
               <Text style={styles.infoLabel}>Date & Time</Text>
               <Text style={styles.infoValue}>
                 {formatDate(event.date)}
@@ -202,7 +228,7 @@ export default function EventDetails() {
 
           <View style={styles.infoRow}>
             <Ionicons name="location-outline" size={18} color="#6B7280" />
-            <View style={{ flex: 1 }}>
+            <View style={{ flex: 1, paddingLeft: 8 }}>
               <Text style={styles.infoLabel}>Location</Text>
               <Text style={styles.infoValue}>{event.location}</Text>
               {!!event.locationAddress && <Text style={styles.infoSub}>{event.locationAddress}</Text>}
@@ -213,9 +239,9 @@ export default function EventDetails() {
 
           <View style={styles.infoRow}>
             <Ionicons name="cash-outline" size={18} color="#6B7280" />
-            <View style={{ flex: 1 }}>
+            <View style={{ flex: 1, paddingLeft: 8 }}>
               <Text style={styles.infoLabel}>Price</Text>
-              <Text style={styles.infoValue}>{event.priceLabel || "Free"}</Text>
+              <Text style={styles.infoValue}>{event.isFree ? "Free" : event.priceLabel || "Paid"}</Text>
             </View>
           </View>
 
@@ -223,7 +249,7 @@ export default function EventDetails() {
 
           <View style={styles.infoRow}>
             <Ionicons name="people-outline" size={18} color="#6B7280" />
-            <View style={{ flex: 1 }}>
+            <View style={{ flex: 1, paddingLeft: 8 }}>
               <Text style={styles.infoLabel}>Attendees</Text>
               <Text style={styles.infoValue}>{event.attending ?? 0} people attending</Text>
             </View>
@@ -232,12 +258,12 @@ export default function EventDetails() {
 
         <Text style={styles.sectionTitle}>About this event</Text>
         <Text style={styles.desc}>
-          {event.description || "Add a description field in Firestore to show details about this event."}
+          {event.description || "No description at this moment about this event."}
         </Text>
 
         <View style={{ height: 14 }} />
         <Text style={styles.organizedLabel}>Organized by</Text>
-        <Text style={styles.organizedValue}>{event.organizer || "Add organizer in Firestore"}</Text>
+        <Text style={styles.organizedValue}>{event.organizer || "Student Association"}</Text>
 
         <View style={{ height: 110 }} />
       </ScrollView>

@@ -1,19 +1,56 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
+import { doc, increment, setDoc, updateDoc } from "firebase/firestore";
 import { useState } from "react";
-import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { auth, db } from "../../../../firebaseConfig";
 
 export default function RSVPForm() {
   const router = useRouter();
   const { id } = useLocalSearchParams();
-
   const [name, setName] = useState("");
   const [notes, setNotes] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  const submit = () => {
-    // ✅ UI only — no Firestore, no auth changes
-    Alert.alert("RSVP Submitted", "This is a demo screen only (no database write).");
-    router.back();
+  const submit = async () => {
+    if (!auth.currentUser) {
+      Alert.alert("Error", "You must be logged in to RSVP.");
+      return;
+    }
+    
+    if (!name.trim()) {
+      Alert.alert("Missing Info", "Please enter your name.");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const userId = auth.currentUser.uid;
+      const eventRef = doc(db, "events", String(id));
+      const rsvpRef = doc(eventRef, "rsvps", userId);
+
+      // 1. Save the RSVP in the subcollection
+      await setDoc(rsvpRef, {
+        userId: userId,
+        name: name.trim(),
+        notes: notes.trim(),
+        email: auth.currentUser.email,
+        timestamp: new Date()
+      });
+
+      // 2. Increment the attending count on the main event document
+      await updateDoc(eventRef, {
+        attending: increment(1)
+      });
+
+      Alert.alert("RSVP Confirmed!", "You are on the list.");
+      router.back();
+    } catch (error: any) {
+      console.error("RSVP Error:", error);
+      Alert.alert("Error", "You have already RSVPed to the event.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -27,9 +64,7 @@ export default function RSVPForm() {
       </View>
 
       <ScrollView contentContainerStyle={{ padding: 16, gap: 12 }}>
-        <Text style={styles.subtitle}>Event ID: {String(id)}</Text>
-
-        <Text style={styles.label}>Your name</Text>
+        <Text style={styles.label}>Your Name *</Text>
         <TextInput
           value={name}
           onChangeText={setName}
@@ -48,13 +83,13 @@ export default function RSVPForm() {
           multiline
         />
 
-        <Pressable style={styles.btn} onPress={submit}>
-          <Text style={styles.btnText}>Confirm RSVP</Text>
+        <Pressable style={styles.btn} onPress={submit} disabled={loading}>
+          {loading ? (
+             <ActivityIndicator color="white" />
+          ) : (
+            <Text style={styles.btnText}>Confirm RSVP</Text>
+          )}
         </Pressable>
-
-        <Text style={styles.hint}>
-          This screen is UI-only right now. Later we can connect it to Firestore without changing your auth flow.
-        </Text>
       </ScrollView>
     </View>
   );
@@ -65,27 +100,8 @@ const styles = StyleSheet.create({
   topBar: { flexDirection: "row", alignItems: "center", paddingHorizontal: 12, paddingBottom: 10 },
   iconBtn: { width: 40, height: 40, alignItems: "center", justifyContent: "center" },
   title: { fontSize: 18, fontWeight: "900", color: "#111827" },
-
-  subtitle: { color: "#6B7280", fontWeight: "700" },
-
   label: { fontWeight: "900", color: "#111827" },
-  input: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 14,
-    paddingHorizontal: 12,
-    paddingVertical: 12,
-    fontWeight: "700",
-    color: "#111827",
-  },
-
-  btn: {
-    marginTop: 8,
-    backgroundColor: "#0B0F1A",
-    paddingVertical: 14,
-    borderRadius: 14,
-    alignItems: "center",
-  },
+  input: { backgroundColor: "#FFFFFF", borderRadius: 14, paddingHorizontal: 12, paddingVertical: 12, fontWeight: "700", color: "#111827" },
+  btn: { marginTop: 8, backgroundColor: "#0B0F1A", paddingVertical: 14, borderRadius: 14, alignItems: "center" },
   btnText: { color: "white", fontWeight: "900" },
-
-  hint: { color: "#6B7280", fontWeight: "600", marginTop: 6, lineHeight: 18 },
 });
