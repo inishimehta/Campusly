@@ -1,50 +1,31 @@
-# Welcome to your Expo app 👋
+# 🎓 Campusly
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+Campusly is a capstone project designed to improve student life by bringing campus communication, events, and essential resources into one convenient mobile app. It helps students stay informed, connected, and engaged through a simple and accessible digital campus experience.
 
-## Get started
+## 🌟 Overview
 
-1. Install dependencies
+Campusly was created to solve common campus challenges such as scattered announcements, missed events, and difficulty accessing student services. By combining these features into one platform, the app makes campus life more organized, interactive, and efficient.
 
-   ```bash
-   npm install
-   ```
+## ✨ Features
 
-2. Start the app
+- 📢 Centralized campus announcements and updates
+- 🗓️ Real-time event and RSVP syncing
+- 👥 Role-based access and validation
+- 🔐 Secure login and authentication
+- 📱 Responsive mobile user interface
+- 🧭 Easy access to campus-related information and services
 
-   ```bash
-   npx expo start
-   ```
+## 🚩 Problem
 
-In the output, you'll find options to open the app in a
+Students often need to use different platforms to stay updated on campus activities, announcements, and services. This creates confusion and makes it easier to miss important information or opportunities.
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+## 💡 Solution
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+Campusly provides a single platform where students can access campus updates, manage event participation, and interact with resources more efficiently. This creates a smoother and more connected campus experience for everyone.
 
-## Get a fresh project
+## 🛠️ Technical Architecture & Tech Stack
 
-When you're ready, run:
-
-```bash
-npm run reset-project
-```
-
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
-
-## Learn more
-
-To learn more about developing your project with Expo, look at the following resources:
-
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
-
-## Join the community
-
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+- **Frontend:** Expo
+- **Backend:** Node.js for secure APIs and role validation
+- **Database:** Firebase Firestore for real-time event and RSVP syncing
+- **Authentication:** Firebase Auth for login and role management
