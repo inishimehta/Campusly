@@ -69,7 +69,7 @@ import {
 
     const qRef = query(
         collection(db, "placeRequests"),
-        where("uid", "==", user.uid),
+        where("userId", "==", user.uid),
         orderBy("createdAt", "desc")
     );
 
