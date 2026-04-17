@@ -230,7 +230,7 @@ export default function PlacesIndex() {
     onPress={() => router.push("/(app)/places/my-place-requests")}
     style={styles.requestsBtn}
   >
-    <Text style={styles.requestsText}>My Place Requests</Text>
+    
   </Pressable>
 </View>
 
