@@ -1,26 +1,18 @@
+import { Ionicons } from "@expo/vector-icons";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import { getAuth } from "firebase/auth";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
-  View,
-  Text,
-  StyleSheet,
-  Pressable,
-  ScrollView,
-  Image,
-  Modal,
-  Alert,
-  ActivityIndicator,
+  ActivityIndicator, Alert, Image,
+  Modal, Pressable,
+  ScrollView, StyleSheet, Text, View
 } from "react-native";
-import { useLocalSearchParams, useRouter } from "expo-router";
 import { CalendarList, type DateData } from "react-native-calendars";
-import { Ionicons } from "@expo/vector-icons";
-import { getAuth } from "firebase/auth";
 import {
   addAdvisorBooking,
-  getAdvisorSchedule,
-  updateAdvisorBookingStatus,
-  type AdvisorBookingItem,
+  getAdvisorSchedule, markSlotAvailable, markSlotUnavailable, updateAdvisorBookingStatus, type AdvisorBookingItem,
   type AdvisorScheduleRecord,
-  type Slot,
+  type Slot
 } from "../advisor-bookings";
 
 function todayISO() {
@@ -37,10 +29,8 @@ export default function BookAppointment() {
 
   const params = useLocalSearchParams();
   const advisorId = typeof params.advisorId === "string" ? params.advisorId : "a1";
-  const advisorName =
-    typeof params.advisorName === "string" ? params.advisorName : "Advisor";
-  const avatarUrl =
-    typeof params.avatarUrl === "string" ? params.avatarUrl : undefined;
+  const advisorName = typeof params.advisorName === "string" ? params.advisorName : "Advisor";
+  const avatarUrl = typeof params.avatarUrl === "string" ? params.avatarUrl : undefined;
 
   const isReschedule = params.isReschedule === "true";
   const oldDate = typeof params.oldDate === "string" ? params.oldDate : "";
@@ -55,16 +45,13 @@ export default function BookAppointment() {
 
   const auth = getAuth();
   const currentUser = auth.currentUser;
-
   const studentEmail = currentUser?.email || "";
   const studentUid = currentUser?.uid || "";
 
   const [schedule, setSchedule] = useState<AdvisorScheduleRecord | null>(null);
   const [loading, setLoading] = useState(true);
-
   const [selectedDate, setSelectedDate] = useState<string>(todayISO());
   const [selectedSlot, setSelectedSlot] = useState<Slot | null>(null);
-
   const [showConfirm, setShowConfirm] = useState(false);
   const [bookedInfo, setBookedInfo] = useState<{
     date: string;
@@ -77,14 +64,12 @@ export default function BookAppointment() {
     const loadSchedule = async () => {
       try {
         const data = await getAdvisorSchedule(advisorId);
-
         const fallback: AdvisorScheduleRecord = {
           advisorId,
           advisorName,
           location: "Wellness Centre",
           slotsByDate: {},
         };
-
         const finalSchedule = data ?? fallback;
         setSchedule(finalSchedule);
 
@@ -92,9 +77,7 @@ export default function BookAppointment() {
           setSelectedDate(oldDate);
         } else {
           const dates = Object.keys(finalSchedule.slotsByDate);
-          if (dates.length > 0) {
-            setSelectedDate(dates[0]);
-          }
+          if (dates.length > 0) setSelectedDate(dates[0]);
         }
       } catch (error) {
         console.error("Failed to load advisor schedule:", error);
@@ -119,12 +102,12 @@ export default function BookAppointment() {
 
   const markedDates = useMemo(() => {
     const marks: Record<string, any> = {};
-
     if (!schedule) return marks;
 
     for (const date of availableDates) {
-      const hasAvailable = (schedule.slotsByDate[date] ?? []).some((s: Slot) => s.available);
-
+      const hasAvailable = (schedule.slotsByDate[date] ?? []).some(
+        (s: Slot) => s.available
+      );
       if (hasAvailable) {
         marks[date] = { marked: true, dotColor: "#10B981" };
       }
@@ -141,10 +124,11 @@ export default function BookAppointment() {
     return marks;
   }, [availableDates, schedule, selectedDate]);
 
+  // ✅ ONLY shows slots that are available (booked ones naturally disappear)
   const slotsForDay = useMemo(() => {
     if (!schedule) return [];
     const slots = schedule.slotsByDate[selectedDate] ?? [];
-    return [...slots].sort((a, b) => Number(b.available) - Number(a.available));
+    return slots.filter((s) => s.available);
   }, [schedule, selectedDate]);
 
   const onPickDay = (day: DateData) => {
@@ -193,7 +177,6 @@ export default function BookAppointment() {
           ) : (
             <View style={styles.avatar} />
           )}
-
           <View style={{ flex: 1 }}>
             <Text style={styles.clinicTitle}>{advisorName}</Text>
             <Text style={styles.clinicSub}>{schedule.location}</Text>
@@ -213,7 +196,6 @@ export default function BookAppointment() {
         <View style={styles.calendarCard}>
           <View style={styles.calendarTopRow}>
             <Text style={styles.sectionTitle}>Choose a date</Text>
-
             <Pressable
               onPress={() => {
                 const today = todayISO();
@@ -262,16 +244,13 @@ export default function BookAppointment() {
             <View style={styles.slotsColumn}>
               {slotsForDay.map((s: Slot) => {
                 const active = selectedSlot?.time === s.time;
-                const disabled = !s.available;
 
                 return (
                   <Pressable
                     key={`${selectedDate}-${s.time}-${s.mode}`}
-                    disabled={disabled}
                     onPress={() => setSelectedSlot(s)}
                     style={[
                       styles.slotCard,
-                      disabled && styles.slotDisabled,
                       active && styles.slotCardActive,
                     ]}
                   >
@@ -326,46 +305,83 @@ export default function BookAppointment() {
             const bookedSlot = selectedSlot;
 
             try {
-              await addAdvisorBooking({
-                advisorId,
-                advisorName,
-                date: bookedDate,
-                time: bookedSlot.time,
-                location: schedule.location,
-                mode: bookedSlot.mode,
-                detail: bookedSlot.detail,
-                studentEmail,
-                studentUid,
-                status: "Booked",
+              // Immediately update UI to make the slot disappear on screen
+              setSchedule((prev) => {
+                if (!prev) return prev;
+                const updatedSlots = (prev.slotsByDate[bookedDate] || []).map(s => 
+                  s.time === bookedSlot.time && s.mode === bookedSlot.mode
+                    ? { ...s, available: false }
+                    : s
+                );
+                
+                let freedSlots = prev.slotsByDate;
+                if (isReschedule && oldDate && oldTime && oldMode) {
+                  const slotsOnOldDate = prev.slotsByDate[oldDate] || [];
+                  freedSlots = {
+                    ...prev.slotsByDate,
+                    [oldDate]: slotsOnOldDate.map(s => 
+                      s.time === oldTime && s.mode === oldMode
+                        ? { ...s, available: true }
+                        : s
+                    )
+                  };
+                }
+
+                return { ...prev, slotsByDate: { ...freedSlots, [bookedDate]: updatedSlots } };
               });
 
+              // ✅ SAFE PAYLOAD: No 'undefined' values allowed for Firebase
+              const safeBooking: AdvisorBookingItem = {
+                advisorId: advisorId || "a1",
+                advisorName: advisorName || "Advisor",
+                date: bookedDate,
+                time: bookedSlot.time || "12:00 PM",
+                location: schedule.location || "Wellness Centre",
+                mode: bookedSlot.mode || "Online",
+                detail: bookedSlot.detail || "",
+                studentEmail: studentEmail || "",
+                studentUid: studentUid || "",
+                status: "Booked",
+              };
+
+              // Save it to Firebase
+              await addAdvisorBooking(safeBooking);
+              await markSlotUnavailable(
+                safeBooking.advisorId,
+                safeBooking.date,
+                safeBooking.time,
+                safeBooking.mode
+              );
+
+              // Handle reschedule 
               if (isReschedule && oldDate && oldTime && oldMode) {
                 const oldBooking: AdvisorBookingItem = {
-                  advisorId,
-                  advisorName,
+                  advisorId: advisorId || "a1",
+                  advisorName: advisorName || "Advisor",
                   date: oldDate,
                   time: oldTime,
-                  location: oldLocation,
+                  location: oldLocation || "Wellness Centre",
                   mode: oldMode,
-                  detail: oldDetail,
-                  studentEmail,
-                  studentUid,
+                  detail: oldDetail || "",
+                  studentEmail: studentEmail || "",
+                  studentUid: studentUid || "",
                   status: "Booked",
                 };
 
                 await updateAdvisorBookingStatus(oldBooking, "Cancelled");
+                await markSlotAvailable(advisorId, oldDate, oldTime, oldMode);
               }
 
               setSelectedSlot(null);
               setBookedInfo({
-                date: bookedDate,
-                time: bookedSlot.time,
-                mode: bookedSlot.mode,
-                detail: bookedSlot.detail,
+                date: safeBooking.date,
+                time: safeBooking.time,
+                mode: safeBooking.mode,
+                detail: safeBooking.detail,
               });
               setShowConfirm(true);
             } catch (error) {
-              console.error("Booking failed:", error);
+              console.error("Firebase Error:", error);
               Alert.alert("Booking failed", "Could not save your appointment.");
             }
           }}
@@ -411,7 +427,6 @@ export default function BookAppointment() {
               style={[styles.modalBtn, styles.secondaryModalBtn]}
               onPress={() => {
                 setShowConfirm(false);
-                router.back();
               }}
             >
               <Text style={[styles.modalBtnText, styles.secondaryModalBtnText]}>
@@ -452,7 +467,6 @@ const styles = StyleSheet.create({
   slotsCard: { backgroundColor: "#FFFFFF", borderRadius: 18, padding: 14, gap: 10 },
   slotsColumn: { gap: 10 },
   slotCard: { backgroundColor: "#F9FAFB", borderRadius: 16, padding: 14, flexDirection: "row", alignItems: "center", gap: 12, borderWidth: 1, borderColor: "#E5E7EB" },
-  slotDisabled: { opacity: 0.45 },
   slotCardActive: { backgroundColor: "#111827", borderColor: "#111827" },
   slotTime: { fontSize: 16, fontWeight: "900", color: "#111827" },
   slotTimeActive: { color: "#FFFFFF" },

@@ -1,3 +1,4 @@
+import { useFocusEffect, useRouter } from "expo-router";
 import React, { useCallback, useMemo, useState } from "react";
 import {
   ActivityIndicator,
@@ -7,17 +8,15 @@ import {
   StyleSheet,
   Text,
   TouchableOpacity,
-  View,
+  View
 } from "react-native";
-import { useFocusEffect, useRouter } from "expo-router";
 import {
-  getMyAdvisorBookings,
-  updateAdvisorBookingStatus,
-  type AdvisorBookingItem,
-  type BookingStatus,
+  getMyAdvisorBookings, markSlotAvailable, updateAdvisorBookingStatus, type AdvisorBookingItem,
+  type BookingStatus
 } from "../advisor-bookings";
 
-type FilterTab = "Upcoming" | "Past" | "Cancelled" | "All";
+// ✅ Removed "Past" tab completely
+type FilterTab = "Upcoming" | "Cancelled" | "All";
 
 function toDateValue(dateStr: string) {
   const safe = new Date(`${dateStr}T00:00:00`);
@@ -88,11 +87,18 @@ export default function MyAppointmentsScreen() {
           onPress: async () => {
             try {
               await updateAdvisorBookingStatus(booking, "Cancelled");
+              await markSlotAvailable(
+                booking.advisorId,
+                booking.date,
+                booking.time,
+                booking.mode
+              );
+
               patchBookingInState(booking, "Cancelled");
               Alert.alert("Success", "Appointment cancelled successfully.");
             } catch (error) {
               console.error("Failed to cancel appointment:", error);
-              Alert.alert("Error", "Could not cancel this appointment.");
+              Alert.alert("Error", "Could not cancel this appointment. Check your connection or permissions.");
             }
           },
         },
@@ -143,33 +149,20 @@ export default function MyAppointmentsScreen() {
   const filteredBookings = useMemo(() => {
     const todayValue = getTodayValue();
 
-    const sorted = [...bookings].sort((a, b) => {
-      const aDate = toDateValue(a.date);
-      const bDate = toDateValue(b.date);
+    // ✅ Filter out all past appointments completely before doing anything else
+    const futureBookings = bookings.filter((b) => toDateValue(b.date) >= todayValue);
 
-      if (selectedTab === "Upcoming") {
-        return aDate - bDate;
-      }
-
-      if (selectedTab === "Past") {
-        return bDate - aDate;
-      }
-
-      return bDate - aDate;
+    const sorted = [...futureBookings].sort((a, b) => {
+      return toDateValue(a.date) - toDateValue(b.date);
     });
 
     return sorted.filter((booking) => {
       const status = booking.status || "Booked";
-      const bookingDateValue = toDateValue(booking.date);
       const isCancelled = status === "Cancelled";
-      const isPast = bookingDateValue < todayValue;
-      const isUpcoming = bookingDateValue >= todayValue;
 
       switch (selectedTab) {
         case "Upcoming":
-          return !isCancelled && isUpcoming;
-        case "Past":
-          return !isCancelled && isPast;
+          return !isCancelled;
         case "Cancelled":
           return isCancelled;
         case "All":
@@ -222,27 +215,25 @@ export default function MyAppointmentsScreen() {
         </View>
 
         <View style={styles.statusRow}>
-          {(["Upcoming", "Past", "Cancelled", "All"] as FilterTab[]).map(
-            (tab) => (
-              <TouchableOpacity
-                key={tab}
+          {(["Upcoming", "Cancelled", "All"] as FilterTab[]).map((tab) => (
+            <TouchableOpacity
+              key={tab}
+              style={[
+                styles.statusChip,
+                selectedTab === tab && styles.activeStatusChip,
+              ]}
+              onPress={() => setSelectedTab(tab)}
+            >
+              <Text
                 style={[
-                  styles.statusChip,
-                  selectedTab === tab && styles.activeStatusChip,
+                  styles.statusChipText,
+                  selectedTab === tab && styles.activeStatusChipText,
                 ]}
-                onPress={() => setSelectedTab(tab)}
               >
-                <Text
-                  style={[
-                    styles.statusChipText,
-                    selectedTab === tab && styles.activeStatusChipText,
-                  ]}
-                >
-                  {tab}
-                </Text>
-              </TouchableOpacity>
-            )
-          )}
+                {tab}
+              </Text>
+            </TouchableOpacity>
+          ))}
         </View>
 
         {loading ? (
@@ -258,8 +249,6 @@ export default function MyAppointmentsScreen() {
             <Text style={styles.emptyText}>
               {selectedTab === "Upcoming"
                 ? "You have no upcoming appointments."
-                : selectedTab === "Past"
-                ? "You have no past appointments."
                 : selectedTab === "Cancelled"
                 ? "You have no cancelled appointments."
                 : "No appointments to show."}
@@ -313,7 +302,7 @@ export default function MyAppointmentsScreen() {
                   <Text style={styles.infoValue}>{booking.detail}</Text>
                 </View>
 
-                {bookingStatus === "Booked" && selectedTab !== "Past" && (
+                {bookingStatus === "Booked" && (
                   <View style={styles.actionRow}>
                     <TouchableOpacity
                       style={[styles.actionButton, styles.cancelButton]}
@@ -401,182 +390,44 @@ const styles = StyleSheet.create({
   scrollContent: { padding: 20, paddingTop: 56, paddingBottom: 40 },
   backButton: { alignSelf: "flex-start", marginBottom: 14 },
   backButtonText: { fontSize: 15, fontWeight: "700", color: "#2563EB" },
-  heroCard: {
-    backgroundColor: "#111827",
-    borderRadius: 20,
-    padding: 20,
-    marginBottom: 18,
-  },
+  heroCard: { backgroundColor: "#111827", borderRadius: 20, padding: 20, marginBottom: 18 },
   header: { fontSize: 24, fontWeight: "900", color: "#FFFFFF" },
-  subheader: {
-    fontSize: 14,
-    color: "#D1D5DB",
-    marginTop: 6,
-    lineHeight: 20,
-  },
-  statusRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 10,
-    marginBottom: 18,
-  },
-  statusChip: {
-    backgroundColor: "#E5E7EB",
-    paddingVertical: 10,
-    paddingHorizontal: 14,
-    borderRadius: 999,
-  },
-  activeStatusChip: {
-    backgroundColor: "#111827",
-  },
-  statusChipText: {
-    color: "#374151",
-    fontWeight: "800",
-  },
-  activeStatusChipText: {
-    color: "#FFFFFF",
-  },
-  emptyCard: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 18,
-    padding: 28,
-    alignItems: "center",
-    marginTop: 8,
-  },
-  emptyTitle: {
-    fontSize: 18,
-    fontWeight: "800",
-    color: "#111827",
-    marginBottom: 8,
-  },
-  emptyText: {
-    fontSize: 14,
-    color: "#6B7280",
-    textAlign: "center",
-    lineHeight: 20,
-  },
-  card: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 22,
-    padding: 18,
-    marginBottom: 16,
-    overflow: "hidden",
-  },
-  cardAccent: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    width: 6,
-    height: "100%",
-    backgroundColor: "#2563EB",
-  },
-  cardTopRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-    marginBottom: 14,
-  },
-  cardTitleWrap: {
-    flex: 1,
-    paddingRight: 10,
-  },
-  advisorName: {
-    fontSize: 18,
-    fontWeight: "900",
-    color: "#111827",
-  },
-  sessionTypeText: {
-    marginTop: 4,
-    fontSize: 13,
-    color: "#6B7280",
-    fontWeight: "700",
-  },
-  infoBlock: {
-    marginBottom: 10,
-  },
-  infoLabel: {
-    fontSize: 12,
-    fontWeight: "800",
-    color: "#6B7280",
-    textTransform: "uppercase",
-    marginBottom: 3,
-  },
-  infoValue: {
-    fontSize: 15,
-    color: "#111827",
-    fontWeight: "600",
-  },
-  badge: {
-    paddingVertical: 6,
-    paddingHorizontal: 10,
-    borderRadius: 999,
-  },
-  badgeText: {
-    fontSize: 12,
-    fontWeight: "900",
-  },
-  bookedBadge: {
-    backgroundColor: "#DBEAFE",
-  },
-  bookedBadgeText: {
-    color: "#1D4ED8",
-  },
-  completedBadge: {
-    backgroundColor: "#DCFCE7",
-  },
-  completedBadgeText: {
-    color: "#15803D",
-  },
-  cancelledBadge: {
-    backgroundColor: "#FEE2E2",
-  },
-  cancelledBadgeText: {
-    color: "#B91C1C",
-  },
-  actionRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 10,
-    marginTop: 12,
-  },
-  actionButton: {
-    flex: 1,
-    minWidth: 95,
-    borderRadius: 14,
-    paddingVertical: 12,
-    alignItems: "center",
-  },
-  actionButtonText: {
-    fontWeight: "800",
-    fontSize: 13,
-  },
-  cancelButton: {
-    backgroundColor: "#FEE2E2",
-  },
-  cancelButtonText: {
-    color: "#B91C1C",
-  },
-  rescheduleButton: {
-    backgroundColor: "#E0E7FF",
-  },
-  rescheduleButtonText: {
-    color: "#4338CA",
-  },
-  rescheduleButtonWide: {
-    backgroundColor: "#E0E7FF",
-    flex: 0,
-    minWidth: 140,
-  },
-  joinButton: {
-    backgroundColor: "#DCFCE7",
-  },
-  joinButtonText: {
-    color: "#15803D",
-  },
-  disabledButton: {
-    backgroundColor: "#E5E7EB",
-  },
-  disabledButtonText: {
-    color: "#9CA3AF",
-  },
+  subheader: { fontSize: 14, color: "#D1D5DB", marginTop: 6, lineHeight: 20 },
+  statusRow: { flexDirection: "row", flexWrap: "wrap", gap: 10, marginBottom: 18 },
+  statusChip: { backgroundColor: "#E5E7EB", paddingVertical: 10, paddingHorizontal: 14, borderRadius: 999 },
+  activeStatusChip: { backgroundColor: "#111827" },
+  statusChipText: { color: "#374151", fontWeight: "800" },
+  activeStatusChipText: { color: "#FFFFFF" },
+  emptyCard: { backgroundColor: "#FFFFFF", borderRadius: 18, padding: 28, alignItems: "center", marginTop: 8 },
+  emptyTitle: { fontSize: 18, fontWeight: "800", color: "#111827", marginBottom: 8 },
+  emptyText: { fontSize: 14, color: "#6B7280", textAlign: "center", lineHeight: 20 },
+  card: { backgroundColor: "#FFFFFF", borderRadius: 22, padding: 18, marginBottom: 16, overflow: "hidden" },
+  cardAccent: { position: "absolute", top: 0, left: 0, width: 6, height: "100%", backgroundColor: "#2563EB" },
+  cardTopRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 14 },
+  cardTitleWrap: { flex: 1, paddingRight: 10 },
+  advisorName: { fontSize: 18, fontWeight: "900", color: "#111827" },
+  sessionTypeText: { marginTop: 4, fontSize: 13, color: "#6B7280", fontWeight: "700" },
+  infoBlock: { marginBottom: 10 },
+  infoLabel: { fontSize: 12, fontWeight: "800", color: "#6B7280", textTransform: "uppercase", marginBottom: 3 },
+  infoValue: { fontSize: 15, color: "#111827", fontWeight: "600" },
+  badge: { paddingVertical: 6, paddingHorizontal: 10, borderRadius: 999 },
+  badgeText: { fontSize: 12, fontWeight: "900" },
+  bookedBadge: { backgroundColor: "#DBEAFE" },
+  bookedBadgeText: { color: "#1D4ED8" },
+  completedBadge: { backgroundColor: "#DCFCE7" },
+  completedBadgeText: { color: "#15803D" },
+  cancelledBadge: { backgroundColor: "#FEE2E2" },
+  cancelledBadgeText: { color: "#B91C1C" },
+  actionRow: { flexDirection: "row", flexWrap: "wrap", gap: 10, marginTop: 12 },
+  actionButton: { flex: 1, minWidth: 95, borderRadius: 14, paddingVertical: 12, alignItems: "center" },
+  actionButtonText: { fontWeight: "800", fontSize: 13 },
+  cancelButton: { backgroundColor: "#FEE2E2" },
+  cancelButtonText: { color: "#B91C1C" },
+  rescheduleButton: { backgroundColor: "#E0E7FF" },
+  rescheduleButtonText: { color: "#4338CA" },
+  rescheduleButtonWide: { backgroundColor: "#E0E7FF", flex: 0, minWidth: 140 },
+  joinButton: { backgroundColor: "#DCFCE7" },
+  joinButtonText: { color: "#15803D" },
+  disabledButton: { backgroundColor: "#E5E7EB" },
+  disabledButtonText: { color: "#9CA3AF" },
 });

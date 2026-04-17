@@ -1,3 +1,12 @@
+import { useFocusEffect, useRouter } from "expo-router";
+import { getAuth } from "firebase/auth";
+import {
+  collection,
+  doc,
+  getDoc,
+  getDocs,
+  query, setDoc, updateDoc, where
+} from "firebase/firestore";
 import React, { useCallback, useMemo, useState } from "react";
 import {
   ActivityIndicator,
@@ -7,20 +16,8 @@ import {
   StyleSheet,
   Text,
   TouchableOpacity,
-  View,
+  View
 } from "react-native";
-import { useFocusEffect, useRouter } from "expo-router";
-import { getAuth } from "firebase/auth";
-import {
-  collection,
-  doc,
-  getDoc,
-  getDocs,
-  query,
-  updateDoc,
-  setDoc,
-  where,
-} from "firebase/firestore";
 import { db } from "../../firebaseConfig";
 
 export type SessionMode = "Online" | "In Person";
@@ -76,9 +73,7 @@ export async function getAdvisorSchedule(
 ): Promise<AdvisorScheduleRecord | null> {
   const ref = doc(db, "advisorSchedules", advisorId);
   const snap = await getDoc(ref);
-
   if (!snap.exists()) return null;
-
   return snap.data() as AdvisorScheduleRecord;
 }
 
@@ -101,8 +96,8 @@ export async function saveAdvisorSchedule(schedule: AdvisorScheduleRecord) {
 }
 
 function getAdvisorBookingDocId(booking: AdvisorBookingItem) {
-  const safeTime = booking.time.replace(/\s+/g, "").replace(/:/g, "");
-  const safeUid = booking.studentUid.replace(/[^a-zA-Z0-9_-]/g, "");
+  const safeTime = (booking.time || "").replace(/\s+/g, "").replace(/:/g, "");
+  const safeUid = (booking.studentUid || "").replace(/[^a-zA-Z0-9_-]/g, "");
   return `${booking.advisorId}_${booking.date}_${safeTime}_${safeUid}`;
 }
 
@@ -119,9 +114,60 @@ export async function updateAdvisorBookingStatus(
   await updateDoc(doc(db, "advisorBookings", bookingId), { status });
 }
 
+// ✅ FIXED: Strips 'undefined' values so Firebase doesn't crash
+export async function markSlotUnavailable(
+  advisorId: string,
+  date: string,
+  time: string,
+  mode: SessionMode
+) {
+  const ref = doc(db, "advisorSchedules", advisorId);
+  const snap = await getDoc(ref);
+  if (!snap.exists()) return;
+
+  const schedule = snap.data() as AdvisorScheduleRecord;
+  const slots = schedule.slotsByDate?.[date] ?? [];
+
+  const updatedSlots = slots.map((slot) => ({
+    time: slot.time || "",
+    mode: slot.mode || "Online",
+    detail: slot.detail || "",
+    available: slot.time === time && slot.mode === mode ? false : !!slot.available,
+  }));
+
+  await updateDoc(ref, {
+    [`slotsByDate.${date}`]: updatedSlots,
+  });
+}
+
+// ✅ FIXED: Strips 'undefined' values so Firebase doesn't crash
+export async function markSlotAvailable(
+  advisorId: string,
+  date: string,
+  time: string,
+  mode: SessionMode
+) {
+  const ref = doc(db, "advisorSchedules", advisorId);
+  const snap = await getDoc(ref);
+  if (!snap.exists()) return;
+
+  const schedule = snap.data() as AdvisorScheduleRecord;
+  const slots = schedule.slotsByDate?.[date] ?? [];
+
+  const updatedSlots = slots.map((slot) => ({
+    time: slot.time || "",
+    mode: slot.mode || "Online",
+    detail: slot.detail || "",
+    available: slot.time === time && slot.mode === mode ? true : !!slot.available,
+  }));
+
+  await updateDoc(ref, {
+    [`slotsByDate.${date}`]: updatedSlots,
+  });
+}
+
 export async function getAllAdvisorBookings(): Promise<AdvisorBookingItem[]> {
   const snap = await getDocs(collection(db, "advisorBookings"));
-
   return snap.docs
     .map((d) => d.data() as AdvisorBookingItem)
     .sort((a, b) => {
@@ -134,7 +180,6 @@ export async function getAllAdvisorBookings(): Promise<AdvisorBookingItem[]> {
 export async function getMyAdvisorBookings(): Promise<AdvisorBookingItem[]> {
   const auth = getAuth();
   const user = auth.currentUser;
-
   if (!user) return [];
 
   const q = query(
@@ -143,7 +188,6 @@ export async function getMyAdvisorBookings(): Promise<AdvisorBookingItem[]> {
   );
 
   const snap = await getDocs(q);
-
   return snap.docs
     .map((d) => d.data() as AdvisorBookingItem)
     .sort((a, b) => {
