@@ -7,7 +7,6 @@ import {
   ScrollView,
   Image,
   Modal,
-  Linking,
   Alert,
   ActivityIndicator,
 } from "react-native";
@@ -18,6 +17,8 @@ import { getAuth } from "firebase/auth";
 import {
   addAdvisorBooking,
   getAdvisorSchedule,
+  updateAdvisorBookingStatus,
+  type AdvisorBookingItem,
   type AdvisorScheduleRecord,
   type Slot,
 } from "../advisor-bookings";
@@ -40,6 +41,17 @@ export default function BookAppointment() {
     typeof params.advisorName === "string" ? params.advisorName : "Advisor";
   const avatarUrl =
     typeof params.avatarUrl === "string" ? params.avatarUrl : undefined;
+
+  const isReschedule = params.isReschedule === "true";
+  const oldDate = typeof params.oldDate === "string" ? params.oldDate : "";
+  const oldTime = typeof params.oldTime === "string" ? params.oldTime : "";
+  const oldMode =
+    params.oldMode === "Online" || params.oldMode === "In Person"
+      ? params.oldMode
+      : undefined;
+  const oldDetail = typeof params.oldDetail === "string" ? params.oldDetail : "";
+  const oldLocation =
+    typeof params.oldLocation === "string" ? params.oldLocation : "Wellness Centre";
 
   const auth = getAuth();
   const currentUser = auth.currentUser;
@@ -76,9 +88,13 @@ export default function BookAppointment() {
         const finalSchedule = data ?? fallback;
         setSchedule(finalSchedule);
 
-        const dates = Object.keys(finalSchedule.slotsByDate);
-        if (dates.length > 0) {
-          setSelectedDate(dates[0]);
+        if (isReschedule && oldDate) {
+          setSelectedDate(oldDate);
+        } else {
+          const dates = Object.keys(finalSchedule.slotsByDate);
+          if (dates.length > 0) {
+            setSelectedDate(dates[0]);
+          }
         }
       } catch (error) {
         console.error("Failed to load advisor schedule:", error);
@@ -94,7 +110,7 @@ export default function BookAppointment() {
     };
 
     loadSchedule();
-  }, [advisorId, advisorName]);
+  }, [advisorId, advisorName, isReschedule, oldDate]);
 
   const availableDates = useMemo(() => {
     if (!schedule) return [];
@@ -107,9 +123,7 @@ export default function BookAppointment() {
     if (!schedule) return marks;
 
     for (const date of availableDates) {
-      const hasAvailable = (schedule.slotsByDate[date] ?? []).some(
-        (s: Slot) => s.available
-      );
+      const hasAvailable = (schedule.slotsByDate[date] ?? []).some((s: Slot) => s.available);
 
       if (hasAvailable) {
         marks[date] = { marked: true, dotColor: "#10B981" };
@@ -140,38 +154,6 @@ export default function BookAppointment() {
 
   const canContinue = Boolean(selectedSlot && schedule);
 
-  const openConfirmationEmail = async (
-    date: string,
-    time: string,
-    mode: string,
-    detail: string
-  ) => {
-    if (!schedule || !studentEmail) return;
-
-    const subject = encodeURIComponent("Wellness Appointment Confirmation");
-    const body = encodeURIComponent(
-      `Your appointment has been booked.\n\nAdvisor: ${advisorName}\nDate: ${date}\nTime: ${time}\nSession Type: ${mode}\n${
-        mode === "Online" ? "Meeting Link" : "Address"
-      }: ${detail}\nLocation: ${schedule.location}`
-    );
-
-    const url = `mailto:${studentEmail}?subject=${subject}&body=${body}`;
-
-    try {
-      const supported = await Linking.canOpenURL(url);
-      if (supported) {
-        await Linking.openURL(url);
-      } else {
-        Alert.alert(
-          "Email app not available",
-          "Could not open an email app on this device."
-        );
-      }
-    } catch {
-      Alert.alert("Email draft could not be opened.");
-    }
-  };
-
   if (loading) {
     return (
       <View style={[styles.page, styles.centered]}>
@@ -198,7 +180,9 @@ export default function BookAppointment() {
         <Pressable onPress={() => router.back()} style={styles.iconBtn}>
           <Ionicons name="arrow-back" size={22} color="#111827" />
         </Pressable>
-        <Text style={styles.title}>Select time</Text>
+        <Text style={styles.title}>
+          {isReschedule ? "Reschedule appointment" : "Select time"}
+        </Text>
         <View style={styles.rightSpacer} />
       </View>
 
@@ -215,6 +199,16 @@ export default function BookAppointment() {
             <Text style={styles.clinicSub}>{schedule.location}</Text>
           </View>
         </View>
+
+        {isReschedule && oldDate && oldTime ? (
+          <View style={styles.noticeCard}>
+            <Text style={styles.noticeTitle}>Current appointment</Text>
+            <Text style={styles.noticeText}>
+              {oldDate} at {oldTime}
+            </Text>
+            {!!oldMode && <Text style={styles.noticeText}>{oldMode}</Text>}
+          </View>
+        ) : null}
 
         <View style={styles.calendarCard}>
           <View style={styles.calendarTopRow}>
@@ -345,12 +339,22 @@ export default function BookAppointment() {
                 status: "Booked",
               });
 
-              await openConfirmationEmail(
-                bookedDate,
-                bookedSlot.time,
-                bookedSlot.mode,
-                bookedSlot.detail
-              );
+              if (isReschedule && oldDate && oldTime && oldMode) {
+                const oldBooking: AdvisorBookingItem = {
+                  advisorId,
+                  advisorName,
+                  date: oldDate,
+                  time: oldTime,
+                  location: oldLocation,
+                  mode: oldMode,
+                  detail: oldDetail,
+                  studentEmail,
+                  studentUid,
+                  status: "Booked",
+                };
+
+                await updateAdvisorBookingStatus(oldBooking, "Cancelled");
+              }
 
               setSelectedSlot(null);
               setBookedInfo({
@@ -362,12 +366,16 @@ export default function BookAppointment() {
               setShowConfirm(true);
             } catch (error) {
               console.error("Booking failed:", error);
-              Alert.alert("Booking failed", "Could not save this booking.");
+              Alert.alert("Booking failed", "Could not save your appointment.");
             }
           }}
         >
           <Text style={styles.nextBtnText}>
-            {canContinue ? "Confirm Booking" : "Select a time to continue"}
+            {canContinue
+              ? isReschedule
+                ? "Save New Time"
+                : "Confirm Booking"
+              : "Select a time to continue"}
           </Text>
         </Pressable>
 
@@ -377,7 +385,11 @@ export default function BookAppointment() {
       <Modal visible={showConfirm} transparent animationType="fade">
         <View style={styles.modalBackdrop}>
           <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>Appointment booked ✅</Text>
+            <Text style={styles.modalTitle}>
+              {isReschedule
+                ? "Appointment updated successfully ✅"
+                : "Appointment saved successfully ✅"}
+            </Text>
             <Text style={styles.modalText}>{advisorName}</Text>
             <Text style={styles.modalText}>
               {bookedInfo ? `${bookedInfo.date} at ${bookedInfo.time}` : ""}
@@ -389,14 +401,22 @@ export default function BookAppointment() {
               style={styles.modalBtn}
               onPress={() => {
                 setShowConfirm(false);
+                router.push("/(app)/wellness/my-appointments");
+              }}
+            >
+              <Text style={styles.modalBtnText}>View My Appointments</Text>
+            </Pressable>
+
+            <Pressable
+              style={[styles.modalBtn, styles.secondaryModalBtn]}
+              onPress={() => {
+                setShowConfirm(false);
                 router.back();
               }}
             >
-              <Text style={styles.modalBtnText}>Done</Text>
-            </Pressable>
-
-            <Pressable onPress={() => setShowConfirm(false)} style={{ marginTop: 10 }}>
-              <Text style={styles.modalLink}>Book another time</Text>
+              <Text style={[styles.modalBtnText, styles.secondaryModalBtnText]}>
+                Done
+              </Text>
             </Pressable>
           </View>
         </View>
@@ -406,250 +426,55 @@ export default function BookAppointment() {
 }
 
 const styles = StyleSheet.create({
-  page: {
-    flex: 1,
-    backgroundColor: "#F6F7FB",
-    paddingTop: 48,
-  },
-
-  centered: {
-    justifyContent: "center",
-    alignItems: "center",
-    paddingHorizontal: 24,
-  },
-
-  loadingText: {
-    marginTop: 12,
-    color: "#6B7280",
-    fontWeight: "700",
-  },
-
-  errorText: {
-    color: "#111827",
-    fontWeight: "800",
-    marginBottom: 16,
-  },
-
-  topBar: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 12,
-    paddingBottom: 10,
-  },
-  iconBtn: {
-    width: 40,
-    height: 40,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  title: {
-    fontSize: 18,
-    fontWeight: "900",
-    color: "#111827",
-  },
-  rightSpacer: {
-    flex: 1,
-  },
-
-  scroll: {
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    gap: 12,
-  },
-
-  headerCard: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 18,
-    padding: 14,
-    flexDirection: "row",
-    gap: 12,
-    alignItems: "center",
-  },
-  avatar: {
-    width: 46,
-    height: 46,
-    borderRadius: 23,
-    backgroundColor: "#E5E7EB",
-  },
-  avatarImg: {
-    width: 46,
-    height: 46,
-    borderRadius: 23,
-  },
-  clinicTitle: {
-    fontSize: 16,
-    fontWeight: "900",
-    color: "#111827",
-  },
-  clinicSub: {
-    marginTop: 2,
-    color: "#6B7280",
-    fontWeight: "700",
-  },
-
-  calendarCard: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 18,
-    padding: 14,
-    gap: 10,
-  },
-  calendarTopRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: "900",
-    color: "#111827",
-  },
-  todayBtn: {
-    paddingVertical: 6,
-    paddingHorizontal: 10,
-    borderRadius: 999,
-    backgroundColor: "#F3F4F6",
-  },
-  todayBtnText: {
-    fontWeight: "900",
-    color: "#111827",
-    fontSize: 12,
-  },
-
-  calendar: {
-    borderRadius: 12,
-  },
-
-  slotsCard: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 18,
-    padding: 14,
-    gap: 10,
-  },
-  muted: {
-    color: "#6B7280",
-    fontWeight: "700",
-  },
-
-  slotsColumn: {
-    gap: 10,
-  },
-
-  slotCard: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-    backgroundColor: "#F9FAFB",
-    borderRadius: 14,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: "#E5E7EB",
-  },
-  slotCardActive: {
-    backgroundColor: "#0B0B16",
-    borderColor: "#0B0B16",
-  },
-  slotDisabled: {
-    opacity: 0.5,
-  },
-  slotTime: {
-    fontSize: 17,
-    fontWeight: "900",
-    color: "#111827",
-  },
-  slotTimeActive: {
-    color: "#FFFFFF",
-  },
-  slotMeta: {
-    marginTop: 6,
-    fontSize: 13,
-    fontWeight: "800",
-    color: "#374151",
-  },
-  slotMetaActive: {
-    color: "#E5E7EB",
-  },
-  slotDetail: {
-    marginTop: 4,
-    fontSize: 12,
-    color: "#6B7280",
-    lineHeight: 18,
-  },
-
-  badge: {
-    paddingVertical: 6,
-    paddingHorizontal: 10,
-    borderRadius: 999,
-  },
-  onlineBadge: {
-    backgroundColor: "#DBEAFE",
-  },
-  onlineBadgeText: {
-    color: "#1D4ED8",
-  },
-  inPersonBadge: {
-    backgroundColor: "#DCFCE7",
-  },
-  inPersonBadgeText: {
-    color: "#166534",
-  },
-  badgeText: {
-    fontWeight: "900",
-    fontSize: 12,
-  },
-
-  nextBtn: {
-    marginTop: 6,
-    backgroundColor: "#0B0B16",
-    paddingVertical: 14,
-    borderRadius: 999,
-    alignItems: "center",
-  },
-  nextBtnDisabled: {
-    opacity: 0.45,
-  },
-  nextBtnText: {
-    color: "#FFFFFF",
-    fontWeight: "900",
-  },
-
-  modalBackdrop: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.35)",
-    alignItems: "center",
-    justifyContent: "center",
-    padding: 20,
-  },
-  modalCard: {
-    width: "100%",
-    maxWidth: 380,
-    backgroundColor: "#FFFFFF",
-    borderRadius: 18,
-    padding: 18,
-    gap: 10,
-  },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: "900",
-    color: "#111827",
-  },
-  modalText: {
-    color: "#374151",
-    fontWeight: "700",
-  },
-  modalBtn: {
-    marginTop: 8,
-    backgroundColor: "#0B0B16",
-    paddingVertical: 14,
-    borderRadius: 999,
-    alignItems: "center",
-  },
-  modalBtnText: {
-    color: "#FFFFFF",
-    fontWeight: "900",
-  },
-  modalLink: {
-    textAlign: "center",
-    fontWeight: "900",
-    color: "#2563EB",
-  },
+  page: { flex: 1, backgroundColor: "#F6F7FB", paddingTop: 48 },
+  centered: { justifyContent: "center", alignItems: "center", paddingHorizontal: 24 },
+  loadingText: { marginTop: 12, color: "#6B7280", fontWeight: "700" },
+  errorText: { color: "#111827", fontWeight: "800", marginBottom: 16 },
+  topBar: { flexDirection: "row", alignItems: "center", paddingHorizontal: 12, paddingBottom: 10 },
+  iconBtn: { width: 40, height: 40, alignItems: "center", justifyContent: "center" },
+  title: { fontSize: 18, fontWeight: "900", color: "#111827" },
+  rightSpacer: { flex: 1 },
+  scroll: { paddingHorizontal: 16, paddingTop: 12, gap: 12 },
+  headerCard: { backgroundColor: "#FFFFFF", borderRadius: 18, padding: 14, flexDirection: "row", gap: 12, alignItems: "center" },
+  avatar: { width: 46, height: 46, borderRadius: 23, backgroundColor: "#E5E7EB" },
+  avatarImg: { width: 46, height: 46, borderRadius: 23 },
+  clinicTitle: { fontSize: 16, fontWeight: "900", color: "#111827" },
+  clinicSub: { marginTop: 2, color: "#6B7280", fontWeight: "700" },
+  noticeCard: { backgroundColor: "#EEF2FF", borderRadius: 16, padding: 14, borderWidth: 1, borderColor: "#D7E0FF" },
+  noticeTitle: { fontSize: 13, fontWeight: "900", color: "#4338CA", marginBottom: 4, textTransform: "uppercase" },
+  noticeText: { color: "#111827", fontWeight: "700" },
+  calendarCard: { backgroundColor: "#FFFFFF", borderRadius: 18, padding: 14, gap: 10 },
+  calendarTopRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  sectionTitle: { fontSize: 16, fontWeight: "900", color: "#111827" },
+  todayBtn: { paddingVertical: 6, paddingHorizontal: 10, borderRadius: 999, backgroundColor: "#F3F4F6" },
+  todayBtnText: { fontWeight: "900", color: "#111827", fontSize: 12 },
+  calendar: { borderRadius: 12 },
+  slotsCard: { backgroundColor: "#FFFFFF", borderRadius: 18, padding: 14, gap: 10 },
+  slotsColumn: { gap: 10 },
+  slotCard: { backgroundColor: "#F9FAFB", borderRadius: 16, padding: 14, flexDirection: "row", alignItems: "center", gap: 12, borderWidth: 1, borderColor: "#E5E7EB" },
+  slotDisabled: { opacity: 0.45 },
+  slotCardActive: { backgroundColor: "#111827", borderColor: "#111827" },
+  slotTime: { fontSize: 16, fontWeight: "900", color: "#111827" },
+  slotTimeActive: { color: "#FFFFFF" },
+  slotMeta: { marginTop: 4, fontSize: 13, fontWeight: "700", color: "#4B5563" },
+  slotMetaActive: { color: "#E5E7EB" },
+  slotDetail: { marginTop: 4, fontSize: 12, color: "#6B7280", fontWeight: "600" },
+  badge: { paddingVertical: 6, paddingHorizontal: 10, borderRadius: 999 },
+  badgeText: { fontSize: 12, fontWeight: "800" },
+  onlineBadge: { backgroundColor: "#DBEAFE" },
+  inPersonBadge: { backgroundColor: "#DCFCE7" },
+  onlineBadgeText: { color: "#1D4ED8" },
+  inPersonBadgeText: { color: "#15803D" },
+  muted: { color: "#6B7280", fontWeight: "600" },
+  nextBtn: { backgroundColor: "#111827", borderRadius: 16, paddingVertical: 16, alignItems: "center", justifyContent: "center" },
+  nextBtnDisabled: { opacity: 0.45 },
+  nextBtnText: { color: "#FFFFFF", fontWeight: "900", fontSize: 15 },
+  modalBackdrop: { flex: 1, backgroundColor: "rgba(15, 23, 42, 0.35)", alignItems: "center", justifyContent: "center", padding: 24 },
+  modalCard: { width: "100%", backgroundColor: "#FFFFFF", borderRadius: 24, padding: 22, alignItems: "center" },
+  modalTitle: { fontSize: 20, fontWeight: "900", color: "#111827", marginBottom: 10, textAlign: "center" },
+  modalText: { color: "#4B5563", fontSize: 15, fontWeight: "700", marginTop: 4, textAlign: "center" },
+  modalBtn: { marginTop: 18, backgroundColor: "#111827", paddingVertical: 12, paddingHorizontal: 18, borderRadius: 14, minWidth: 220, alignItems: "center" },
+  modalBtnText: { color: "#FFFFFF", fontWeight: "900", fontSize: 14 },
+  secondaryModalBtn: { backgroundColor: "#E5E7EB", marginTop: 10 },
+  secondaryModalBtnText: { color: "#111827" },
 });

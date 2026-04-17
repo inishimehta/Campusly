@@ -8,6 +8,7 @@ import {
   Alert,
   ActivityIndicator,
   Image,
+  TextInput,
 } from "react-native";
 import { useRouter } from "expo-router";
 import {
@@ -94,7 +95,6 @@ function buildDefaultSchedule(advisorId: string, advisorName: string): AdvisorSc
   };
 }
 
-// ✅ ADDED: normalize anything that comes back from Firestore
 function normalizeSchedule(
   raw: Partial<AdvisorScheduleRecord> | null | undefined,
   advisorId: string,
@@ -106,6 +106,13 @@ function normalizeSchedule(
     location: raw?.location || "Wellness Centre",
     slotsByDate: raw?.slotsByDate ?? {},
   };
+}
+
+function normalizeUrl(value: string) {
+  const trimmed = value.trim();
+  if (!trimmed) return "";
+  if (/^https?:\/\//i.test(trimmed)) return trimmed;
+  return `https://${trimmed}`;
 }
 
 export default function AdvisorSchedule() {
@@ -122,6 +129,7 @@ export default function AdvisorSchedule() {
   const [selectedDate, setSelectedDate] = useState<string>(SAMPLE_DATES[0]);
   const [selectedTime, setSelectedTime] = useState<string>("10:00am");
   const [selectedMode, setSelectedMode] = useState<SessionMode>("In Person");
+  const [meetingLink, setMeetingLink] = useState("");
 
   useEffect(() => {
     const loadAdvisors = async () => {
@@ -155,7 +163,6 @@ export default function AdvisorSchedule() {
 
         const existing = await getAdvisorSchedule(selectedAdvisorId);
 
-        // ✅ EDITED: always normalize before using
         const nextSchedule = normalizeSchedule(
           existing ?? buildDefaultSchedule(advisor.id, advisor.name),
           advisor.id,
@@ -164,7 +171,6 @@ export default function AdvisorSchedule() {
 
         setSchedule(nextSchedule);
 
-        // ✅ EDITED: safe access
         const safeSlotsByDate = nextSchedule.slotsByDate ?? {};
         const dates = Object.keys(safeSlotsByDate);
 
@@ -173,6 +179,8 @@ export default function AdvisorSchedule() {
         } else {
           setSelectedDate(SAMPLE_DATES[0]);
         }
+
+        setMeetingLink("");
       } catch (error) {
         console.error("Failed to load schedule:", error);
         Alert.alert("Error", "Could not load this advisor's schedule.");
@@ -189,12 +197,17 @@ export default function AdvisorSchedule() {
     loadSchedule();
   }, [selectedAdvisorId, advisors]);
 
+  useEffect(() => {
+    if (selectedMode === "In Person") {
+      setMeetingLink("");
+    }
+  }, [selectedMode]);
+
   const selectedAdvisor = useMemo(() => {
     return advisors.find((a) => a.id === selectedAdvisorId) ?? null;
   }, [advisors, selectedAdvisorId]);
 
   const slotsForSelectedDate = useMemo(() => {
-    // ✅ EDITED: extra safety
     if (!schedule || !schedule.slotsByDate) return [];
     const slots = schedule.slotsByDate[selectedDate] ?? [];
     return [...slots].sort(
@@ -205,7 +218,6 @@ export default function AdvisorSchedule() {
   const addSlot = () => {
     if (!schedule) return;
 
-    // ✅ EDITED: safe slotsByDate fallback
     const currentSlotsByDate = schedule.slotsByDate ?? {};
     const daySlots = currentSlotsByDate[selectedDate] ?? [];
 
@@ -218,12 +230,18 @@ export default function AdvisorSchedule() {
       return;
     }
 
-    const detail =
-      selectedMode === "Online"
-        ? `https://meet.google.com/${schedule.advisorId}/${selectedDate}/${selectedTime
-            .replace(/[: ]/g, "")
-            .toLowerCase()}`
-        : schedule.location;
+    let detail = schedule.location;
+
+    if (selectedMode === "Online") {
+      const normalizedLink = normalizeUrl(meetingLink);
+
+      if (!normalizedLink || !/^https?:\/\//i.test(normalizedLink)) {
+        Alert.alert("Missing link", "Please enter a valid online meeting link.");
+        return;
+      }
+
+      detail = normalizedLink;
+    }
 
     const newSlot: Slot = {
       time: selectedTime,
@@ -243,12 +261,12 @@ export default function AdvisorSchedule() {
     };
 
     setSchedule(updatedSchedule);
+    setMeetingLink("");
   };
 
   const removeSlot = (time: string, mode: SessionMode) => {
     if (!schedule) return;
 
-    // ✅ EDITED: safe slotsByDate fallback
     const currentSlotsByDate = schedule.slotsByDate ?? {};
 
     const updatedSchedule: AdvisorScheduleRecord = {
@@ -273,10 +291,10 @@ export default function AdvisorSchedule() {
         ...schedule,
         slotsByDate: schedule.slotsByDate ?? {},
       });
-      Alert.alert("Saved", "Advisor schedule updated in Firebase.");
+      Alert.alert("Saved", "Schedule saved successfully.");
     } catch (error) {
       console.error("Failed to save schedule:", error);
-      Alert.alert("Error", "Could not save advisor schedule.");
+      Alert.alert("Error", "Could not save the schedule.");
     } finally {
       setSaving(false);
     }
@@ -447,6 +465,22 @@ export default function AdvisorSchedule() {
                   );
                 })}
               </View>
+
+              {selectedMode === "Online" ? (
+                <>
+                  <Text style={[styles.label, { marginTop: 16 }]}>Meeting Link</Text>
+                  <TextInput
+                    value={meetingLink}
+                    onChangeText={setMeetingLink}
+                    placeholder="https://meet.google.com/..."
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    keyboardType="url"
+                    style={styles.linkInput}
+                    placeholderTextColor="#9CA3AF"
+                  />
+                </>
+              ) : null}
 
               <Text style={[styles.label, { marginTop: 16 }]}>Select Time</Text>
               <View style={styles.timeWrap}>
@@ -718,6 +752,18 @@ const styles = StyleSheet.create({
   },
   modeChipTextActive: {
     color: "#FFFFFF",
+  },
+
+  linkInput: {
+    backgroundColor: "#F9FAFB",
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontSize: 14,
+    color: "#111827",
+    fontWeight: "600",
   },
 
   timeWrap: {
