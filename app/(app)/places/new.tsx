@@ -71,7 +71,7 @@ export default function NewPlace() {
 
         // request metadata
         status: "pending",
-        uid: user.uid,
+        userId: user.uid,
         email: user.email ?? "",
         createdAt: serverTimestamp(),
       });
